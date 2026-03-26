@@ -1,0 +1,25 @@
+# development tools
+.claude/
+_assets/
+
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# environment variables — NUNCA subir para o repositório
+.env
+.env.local
+.env.*.local
+
+# debug
+npm-debug.log*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
