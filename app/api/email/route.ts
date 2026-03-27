@@ -23,11 +23,11 @@ export async function POST(req: NextRequest) {
   }
 
   // ZADD com timestamp como score — preserva ordem de cadastro e ignora duplicatas
-  const added = await redis.zadd("sinergia:emails", {
-    score: Date.now(),
-    member: email.toLowerCase().trim(),
-    nx: true, // só adiciona se não existir
-  });
+  const added = await redis.zadd(
+    "sinergia:emails",
+    { nx: true },
+    { score: Date.now(), member: email.toLowerCase().trim() }
+  );
 
   // added = 1 (novo) ou 0 (já existia) — ambos retornam sucesso para o usuário
   return NextResponse.json({ ok: true, new: added === 1 });
