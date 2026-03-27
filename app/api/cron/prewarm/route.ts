@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   // 3. Extrai signos únicos com assinantes
   const activeSignos = [...new Set(
-    signs.filter((s): s is string => !!s && VALID_SIGNS.includes(s))
+    signs.filter((s): s is string => typeof s === "string" && VALID_SIGNS.includes(s))
   )];
 
   if (activeSignos.length === 0) {
