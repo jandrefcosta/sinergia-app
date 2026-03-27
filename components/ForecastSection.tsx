@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { getTodayFormatted } from "@/lib/utils";
 import type { ForecastState } from "@/lib/forecasts";
 
@@ -206,7 +209,8 @@ type Props = {
 };
 
 export default function ForecastSection({ forecastState }: Props) {
-  const today = getTodayFormatted();
+  const [today, setToday] = useState("");
+  useEffect(() => { setToday(getTodayFormatted()); }, []);
 
   return (
     <section
