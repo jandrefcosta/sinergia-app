@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Newsreader } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const inter = Inter({
@@ -45,6 +46,7 @@ export default function RootLayout({
       </head>
       <body className="bg-surface text-on-surface font-body antialiased">
         {children}
+        <Analytics />
       </body>
     </html>
   );
