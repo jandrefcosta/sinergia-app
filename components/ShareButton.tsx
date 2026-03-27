@@ -11,7 +11,7 @@ export default function ShareButton() {
   const shareUrl =
     typeof window !== "undefined"
       ? window.location.origin
-      : "https://sinergia-app-seven.vercel.app/"; //"https://sinergia.app";
+      : "https://sinergia-astros.app";
   const shareText =
     "✨ Descubra o que os astros têm a dizer para você hoje — Sinergia";
 
