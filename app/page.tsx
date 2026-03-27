@@ -6,6 +6,7 @@ import HeroSection from "@/components/HeroSection";
 import ForecastSection from "@/components/ForecastSection";
 import RetentionSection from "@/components/RetentionSection";
 import HistorySection from "@/components/HistorySection";
+import FeedbackSection from "@/components/FeedbackSection";
 import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
 import { generateForecast, type ForecastState } from "@/lib/forecasts";
@@ -56,6 +57,7 @@ export default function Home() {
             <ForecastSection forecastState={forecastState} />
             <RetentionSection />
             <HistorySection />
+            <FeedbackSection />
           </div>
         </div>
       </main>
