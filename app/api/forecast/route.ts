@@ -98,7 +98,8 @@ export async function POST(req: NextRequest) {
 
   const redis = getRedis();
   const period = getBRTPeriod();
-  const cacheKey = `sinergia:cache:${sign}:${period}`;
+  const fingerprint = getFingerprint(req);
+  const cacheKey = `sinergia:cache:${fingerprint}:${sign}:${period}`;
 
   // 2. Checa cache — previsão já gerada no período vigente: retorna sem consumir slot
   if (redis) {
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
 
   // 3. Checa rate limit manual — INCR + EXPIREAT nas 06h00 BRT
   if (redis) {
-    const rlKey = `sinergia:rl:${getFingerprint(req)}:${period}`;
+    const rlKey = `sinergia:rl:${fingerprint}:${period}`;
     const count = await redis.incr(rlKey);
 
     // Define TTL apenas na primeira requisição do período
