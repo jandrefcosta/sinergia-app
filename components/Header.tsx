@@ -1,5 +1,7 @@
 "use client";
 
+import ShareButton from "@/components/ShareButton";
+
 export default function Header() {
   return (
     <header
@@ -26,7 +28,7 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav
-          className="hidden md:flex items-center gap-8"
+          className="hidden md:flex items-center gap-6"
           aria-label="Navegação principal"
         >
           <a
@@ -36,7 +38,13 @@ export default function Header() {
           >
             Forecast
           </a>
+          <ShareButton />
         </nav>
+
+        {/* Mobile share button (header) */}
+        <div className="md:hidden">
+          <ShareButton />
+        </div>
       </div>
     </header>
   );
