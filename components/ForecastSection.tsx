@@ -106,7 +106,7 @@ function ForecastError({ message }: { message: string }) {
       <div className="space-y-1">
         <p className="font-headline text-lg italic text-on-surface/70">{message}</p>
         <p className="font-label text-[10px] uppercase tracking-widest text-outline/50">
-          3 consultas gratuitas por dia · renova à meia-noite
+          3 consultas gratuitas por dia · renova às 06h00
         </p>
       </div>
     </div>

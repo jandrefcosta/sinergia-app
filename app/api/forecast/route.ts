@@ -1,5 +1,4 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
@@ -49,15 +48,6 @@ function getRedis(): Redis | null {
   return new Redis({ url, token });
 }
 
-function getRatelimit(redis: Redis) {
-  return new Ratelimit({
-    redis,
-    limiter: Ratelimit.fixedWindow(3, "1 d"),
-    analytics: true,
-    prefix: "sinergia:forecast",
-  });
-}
-
 /** Fingerprint: SHA-256 dos sinais passivos disponíveis no servidor */
 function getFingerprint(req: NextRequest): string {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown";
@@ -66,13 +56,36 @@ function getFingerprint(req: NextRequest): string {
   return createHash("sha256").update(`${ip}|${ua}|${lang}`).digest("hex").slice(0, 32);
 }
 
-/** Seconds remaining until midnight (Brasília, UTC-3) */
-function secondsUntilMidnight(): number {
+/**
+ * Retorna a data do "período vigente" em Brasília (UTC-3).
+ * O dia começa às 06h — antes disso, ainda conta como dia anterior.
+ * Formato: YYYY-MM-DD
+ */
+function getBRTPeriod(): string {
   const now = new Date();
-  const midnight = new Date(now);
-  midnight.setUTCHours(3, 0, 0, 0); // 00:00 BRT = 03:00 UTC
-  if (midnight <= now) midnight.setUTCDate(midnight.getUTCDate() + 1);
-  return Math.ceil((midnight.getTime() - now.getTime()) / 1000);
+  // Converte para BRT (UTC-3)
+  const brt = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+  // Se ainda não passou das 06h, o "dia" é o anterior
+  if (brt.getUTCHours() < 6) {
+    brt.setUTCDate(brt.getUTCDate() - 1);
+  }
+  return brt.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+/** Segundos até as 06h00 de Brasília (próximo reset) */
+function secondsUntilReset(): number {
+  const now = new Date();
+  const brt = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+
+  const next6am = new Date(brt);
+  next6am.setUTCHours(6, 0, 0, 0);
+  if (brt.getUTCHours() >= 6) {
+    next6am.setUTCDate(next6am.getUTCDate() + 1);
+  }
+
+  // Converte de volta para UTC
+  const next6amUTC = new Date(next6am.getTime() + 3 * 60 * 60 * 1000);
+  return Math.ceil((next6amUTC.getTime() - now.getTime()) / 1000);
 }
 
 export async function POST(req: NextRequest) {
@@ -84,32 +97,30 @@ export async function POST(req: NextRequest) {
   }
 
   const redis = getRedis();
-  const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
-  const cacheKey = `sinergia:cache:${sign}:${today}`;
+  const period = getBRTPeriod();
+  const cacheKey = `sinergia:cache:${sign}:${period}`;
 
-  // 2. Checa cache — previsão já gerada hoje para esse signo: retorna sem consumir slot
+  // 2. Checa cache — previsão já gerada no período vigente: retorna sem consumir slot
   if (redis) {
     const cached = await redis.get(cacheKey);
     if (cached) {
-      return NextResponse.json(cached, {
-        headers: { "X-Cache": "HIT" },
-      });
+      return NextResponse.json(cached, { headers: { "X-Cache": "HIT" } });
     }
   }
 
-  // 3. Checa rate limit — só aqui, e só para novas consultas
+  // 3. Checa rate limit manual — INCR + EXPIREAT nas 06h00 BRT
   if (redis) {
-    const ratelimit = getRatelimit(redis);
-    const { success, reset } = await ratelimit.limit(getFingerprint(req));
+    const rlKey = `sinergia:rl:${getFingerprint(req)}:${period}`;
+    const count = await redis.incr(rlKey);
 
-    if (!success) {
-      const resetAt = new Date(reset).toLocaleTimeString("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "America/Sao_Paulo",
-      });
+    // Define TTL apenas na primeira requisição do período
+    if (count === 1) {
+      await redis.expire(rlKey, secondsUntilReset());
+    }
+
+    if (count > 3) {
       return NextResponse.json(
-        { error: `Você já consultou os astros 3 vezes hoje. Volte amanhã às ${resetAt}.` },
+        { error: "Você já consultou os astros 3 vezes hoje. Volte após as 06h00 de amanhã." },
         { status: 429, headers: { "X-RateLimit-Remaining": "0" } }
       );
     }
@@ -140,9 +151,9 @@ export async function POST(req: NextRequest) {
     const json = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
     const data = { sign, symbol: SIGN_SYMBOLS[sign], ...JSON.parse(json) };
 
-    // 5. Salva no cache até meia-noite (horário de Brasília)
+    // 5. Salva no cache até o próximo reset (06h00 BRT)
     if (redis) {
-      await redis.set(cacheKey, data, { ex: secondsUntilMidnight() });
+      await redis.set(cacheKey, data, { ex: secondsUntilReset() });
     }
 
     return NextResponse.json(data, { headers: { "X-Cache": "MISS" } });

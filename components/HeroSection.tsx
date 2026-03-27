@@ -197,7 +197,7 @@ export default function HeroSection({ onGenerate, isGenerating }: Props) {
           <p className="text-center text-[11px] text-outline/50 font-label -mt-4">
             {!selectedSign
               ? "Selecione um signo para continuar"
-              : "3 consultas gratuitas por dia · renova à meia-noite"}
+              : "3 consultas gratuitas por dia · renova às 06h00"}
           </p>
         </div>
       </div>
