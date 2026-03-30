@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TIME_RE = /^\d{2}:\d{2}$/;
 
 const SIGNS = [
   "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
@@ -15,66 +16,54 @@ const SIGN_SYMBOLS: Record<string, string> = {
   Sagitário: "♐", Capricórnio: "♑", Aquário: "♒", Peixes: "♓",
 };
 
-function validateEmail(email: string): string | null {
+function validate(email: string, sign: string, birthdate: string, birthtime: string): string | null {
   if (!email.trim()) return "Informe seu email para continuar.";
-  if (!email.includes("@")) return "O email precisa conter @.";
   if (!EMAIL_RE.test(email)) return "Formato de email inválido.";
-  return null;
-}
-
-function validateProfile(sign: string, birthdate: string): string | null {
   if (!sign) return "Selecione seu signo.";
   if (!birthdate) return "Informe sua data de nascimento.";
+  if (birthtime && !TIME_RE.test(birthtime)) return "Horário inválido.";
   return null;
 }
 
-type Step = "email" | "profile" | "done";
-
 export default function RetentionSection() {
-  const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [sign, setSign] = useState("");
   const [birthdate, setBirthdate] = useState("");
+  const [birthtime, setBirthtime] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
 
-  async function handleEmailSubmit(e: React.FormEvent) {
+  function clearError() {
+    if (error) setError(null);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const err = validateEmail(email);
+    const err = validate(email, sign, birthdate, birthtime);
     if (err) { setError(err); return; }
+
     setLoading(true);
     setError(null);
+
     try {
-      const res = await fetch("/api/email", {
+      const emailRes = await fetch("/api/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      if (!res.ok) throw new Error();
-      setStep("profile");
-    } catch {
-      setError("Não foi possível cadastrar. Tente novamente.");
-    } finally {
-      setLoading(false);
-    }
-  }
+      if (!emailRes.ok) throw new Error("email");
 
-  async function handleProfileSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const err = validateProfile(sign, birthdate);
-    if (err) { setError(err); return; }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/profile", {
+      const profileRes = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, sign, birthdate }),
+        body: JSON.stringify({ email, sign, birthdate, ...(birthtime && { birthtime }) }),
       });
-      if (!res.ok) throw new Error();
-      setStep("done");
+      if (!profileRes.ok) throw new Error("profile");
+
+      setDone(true);
     } catch {
-      setError("Não foi possível salvar. Tente novamente.");
+      setError("Não foi possível cadastrar. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -90,17 +79,13 @@ export default function RetentionSection() {
         {/* Copy */}
         <div className="flex-1 space-y-2 text-center md:text-left">
           <h3 className="font-headline text-2xl text-secondary copper-glow">
-            {step === "done"
+            {done
               ? "Até amanhã, sob as estrelas."
-              : step === "profile"
-              ? "Quase lá. Os astros precisam te conhecer."
               : "A clareza não deve parar aqui."}
           </h3>
           <p className="text-sm text-on-surface-variant leading-relaxed">
-            {step === "done"
+            {done
               ? "Sua previsão chega todas as manhãs, personalizada para o seu signo."
-              : step === "profile"
-              ? "Seu signo e data de nascimento garantem previsões personalizadas todas as manhãs."
               : "Receba seu guia celestial todas as manhãs, antes do café. Seu despertar merece intenção."}
           </p>
         </div>
@@ -108,8 +93,7 @@ export default function RetentionSection() {
         {/* Form area */}
         <div className="w-full md:w-auto flex flex-col gap-3 min-w-0 md:min-w-[300px]">
 
-          {/* Step: done */}
-          {step === "done" && (
+          {done ? (
             <div
               className="flex items-center gap-3 px-5 py-4 rounded-xl bg-primary-container/30 border border-secondary/20 animate-fade-in-up"
               role="status"
@@ -122,12 +106,11 @@ export default function RetentionSection() {
                 Perfeito! Os astros já sabem o seu caminho.
               </p>
             </div>
-          )}
+          ) : (
+            <form onSubmit={handleSubmit} noValidate className="space-y-3">
 
-          {/* Step: email */}
-          {step === "email" && (
-            <form onSubmit={handleEmailSubmit} noValidate>
-              <div className="relative">
+              {/* Email */}
+              <div>
                 <label htmlFor="email-capture" className="sr-only">
                   Seu endereço de email
                 </label>
@@ -135,55 +118,28 @@ export default function RetentionSection() {
                   id="email-capture"
                   type="email"
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }}
+                  onChange={(e) => { setEmail(e.target.value); clearError(); }}
                   placeholder="seu@email.com"
                   aria-describedby={error ? "retention-error" : undefined}
                   aria-invalid={!!error}
+                  autoComplete="email"
                   className={[
-                    "w-full bg-surface rounded-lg px-4 py-3 pr-36 text-sm font-body text-on-surface",
+                    "w-full bg-surface rounded-lg px-4 py-3 text-sm font-body text-on-surface",
                     "placeholder:text-outline-variant/50 focus:outline-none transition-celestial",
-                    error
+                    error && !email.trim()
                       ? "ring-1 ring-error/70 focus:ring-error"
                       : "focus:ring-1 focus:ring-secondary/60",
                   ].join(" ")}
-                  autoComplete="email"
                 />
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-secondary text-on-secondary rounded-md text-[11px] font-label font-semibold uppercase tracking-tight hover:bg-secondary-fixed transition-celestial focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/60 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {loading ? (
-                    <span className="material-symbols-outlined text-sm animate-spin" aria-hidden="true">
-                      progress_activity
-                    </span>
-                  ) : "Receber amanhã"}
-                </button>
               </div>
-              {error ? (
-                <p id="retention-error" role="alert" className="mt-2 flex items-center gap-1 text-[11px] font-label text-error/80 animate-fade-in-up">
-                  <span className="material-symbols-outlined text-sm" aria-hidden="true">error</span>
-                  {error}
-                </p>
-              ) : (
-                <p className="mt-2 text-[10px] text-center text-on-surface-variant/40 font-label tracking-wide">
-                  Privacidade absoluta. Apenas os astros verão seus dados.
-                </p>
-              )}
-            </form>
-          )}
 
-          {/* Step: profile */}
-          {step === "profile" && (
-            <form onSubmit={handleProfileSubmit} noValidate className="space-y-3 animate-fade-in-up">
-
-              {/* Sign selector */}
+              {/* Sign */}
               <div>
                 <label htmlFor="sign-select" className="sr-only">Seu signo</label>
                 <select
                   id="sign-select"
                   value={sign}
-                  onChange={(e) => { setSign(e.target.value); if (error) setError(null); }}
+                  onChange={(e) => { setSign(e.target.value); clearError(); }}
                   className={[
                     "w-full bg-surface rounded-lg px-4 py-3 text-sm font-body text-on-surface",
                     "focus:outline-none transition-celestial appearance-none cursor-pointer",
@@ -198,36 +154,60 @@ export default function RetentionSection() {
                 </select>
               </div>
 
-              {/* Birthdate */}
-              <div className="relative">
-                <label htmlFor="birthdate" className="sr-only">Data de nascimento</label>
-                <input
-                  id="birthdate"
-                  type="date"
-                  value={birthdate}
-                  onChange={(e) => { setBirthdate(e.target.value); if (error) setError(null); }}
-                  max={new Date().toISOString().slice(0, 10)}
-                  min="1900-01-01"
-                  aria-describedby={error ? "retention-error" : undefined}
-                  aria-invalid={!!error}
-                  className={[
-                    "w-full bg-surface rounded-lg px-4 py-3 pr-36 text-sm font-body text-on-surface",
-                    "focus:outline-none transition-celestial",
-                    error && !birthdate ? "ring-1 ring-error/70" : "focus:ring-1 focus:ring-secondary/60",
-                  ].join(" ")}
-                />
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-secondary text-on-secondary rounded-md text-[11px] font-label font-semibold uppercase tracking-tight hover:bg-secondary-fixed transition-celestial focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/60 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {loading ? (
-                    <span className="material-symbols-outlined text-sm animate-spin" aria-hidden="true">
-                      progress_activity
-                    </span>
-                  ) : "Confirmar"}
-                </button>
+              {/* Birthdate + Birthtime */}
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label htmlFor="birthdate" className="sr-only">Data de nascimento</label>
+                  <input
+                    id="birthdate"
+                    type="date"
+                    value={birthdate}
+                    onChange={(e) => { setBirthdate(e.target.value); clearError(); }}
+                    max={new Date().toISOString().slice(0, 10)}
+                    min="1900-01-01"
+                    aria-describedby={error ? "retention-error" : undefined}
+                    aria-invalid={!!error && !birthdate}
+                    className={[
+                      "w-full bg-surface rounded-lg px-4 py-3 text-sm font-body text-on-surface",
+                      "focus:outline-none transition-celestial",
+                      error && !birthdate ? "ring-1 ring-error/70" : "focus:ring-1 focus:ring-secondary/60",
+                    ].join(" ")}
+                  />
+                </div>
+                <div className="w-28">
+                  <label htmlFor="birthtime" className="sr-only">Hora de nascimento (opcional)</label>
+                  <input
+                    id="birthtime"
+                    type="time"
+                    value={birthtime}
+                    onChange={(e) => { setBirthtime(e.target.value); clearError(); }}
+                    placeholder="--:--"
+                    className={[
+                      "w-full bg-surface rounded-lg px-3 py-3 text-sm font-body text-on-surface",
+                      "focus:outline-none transition-celestial",
+                      error && birthtime && !TIME_RE.test(birthtime)
+                        ? "ring-1 ring-error/70"
+                        : "focus:ring-1 focus:ring-secondary/60",
+                    ].join(" ")}
+                  />
+                </div>
               </div>
+              <p className="text-[10px] text-on-surface-variant/40 font-label -mt-1">
+                Hora de nascimento opcional — melhora a precisão das previsões.
+              </p>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-secondary text-on-secondary rounded-lg text-sm font-label font-semibold uppercase tracking-tight hover:bg-secondary-fixed transition-celestial focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/60 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {loading ? (
+                  <span className="material-symbols-outlined text-sm animate-spin" aria-hidden="true">
+                    progress_activity
+                  </span>
+                ) : "Receber previsões"}
+              </button>
 
               {error ? (
                 <p id="retention-error" role="alert" className="flex items-center gap-1 text-[11px] font-label text-error/80 animate-fade-in-up">
@@ -236,16 +216,10 @@ export default function RetentionSection() {
                 </p>
               ) : (
                 <p className="text-[10px] text-center text-on-surface-variant/40 font-label tracking-wide">
-                  Usados apenas para personalizar suas previsões.{" "}
-                  <button
-                    type="button"
-                    onClick={() => setStep("done")}
-                    className="underline underline-offset-2 hover:text-on-surface-variant/60 transition-celestial cursor-pointer"
-                  >
-                    Pular
-                  </button>
+                  Privacidade absoluta. Apenas os astros verão seus dados.
                 </p>
               )}
+
             </form>
           )}
 

@@ -13,8 +13,10 @@ function getRedis(): Redis | null {
   return new Redis({ url, token });
 }
 
+const TIME_RE = /^\d{2}:\d{2}$/;
+
 export async function POST(req: NextRequest) {
-  const { email, sign, birthdate } = await req.json().catch(() => ({}));
+  const { email, sign, birthdate, birthtime } = await req.json().catch(() => ({}));
 
   if (!email || !EMAIL_RE.test(email)) {
     return NextResponse.json({ error: "Email inválido" }, { status: 400 });
@@ -24,6 +26,9 @@ export async function POST(req: NextRequest) {
   }
   if (!birthdate || !DATE_RE.test(birthdate)) {
     return NextResponse.json({ error: "Data de nascimento inválida" }, { status: 400 });
+  }
+  if (birthtime !== undefined && birthtime !== "" && !TIME_RE.test(birthtime)) {
+    return NextResponse.json({ error: "Horário inválido" }, { status: 400 });
   }
 
   const birth = new Date(birthdate);
@@ -46,7 +51,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Salva perfil como Hash — upsert seguro
-  await redis.hset(`sinergia:profile:${normalizedEmail}`, { sign, birthdate });
+  await redis.hset(`sinergia:profile:${normalizedEmail}`, {
+    sign,
+    birthdate,
+    ...(birthtime ? { birthtime } : {}),
+  });
 
   return NextResponse.json({ ok: true });
 }
