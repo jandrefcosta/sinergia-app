@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Intro() {
   return (
     <section className="pt-11 pb-9">
@@ -7,6 +9,12 @@ export default function Intro() {
       <p className="max-w-[44ch] text-ink-2">
         Uma previsão por dia, escrita com calma a partir das posições reais dos planetas. Escolha seu
         signo e leia em menos de um minuto.
+      </p>
+      <p className="mt-4 text-sm text-ink-2">
+        Não sabe o seu?{" "}
+        <Link href="/qual-e-o-meu-signo" className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">
+          Descubra pela data de nascimento
+        </Link>
       </p>
     </section>
   );

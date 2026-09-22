@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Instrument_Sans } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { GA_ID } from "@/lib/analytics";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -21,6 +22,7 @@ const instrument = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Sinergia — O céu de hoje, lido para você",
   description:
     "Uma previsão por dia, escrita com calma a partir das posições reais dos planetas. Escolha seu signo e leia em menos de um minuto.",

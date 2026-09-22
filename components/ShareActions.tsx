@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { events } from "@/lib/analytics";
+import { slugFor } from "@/lib/slugs";
+import type { SignName } from "@/lib/ephemeris";
+import { SITE_URL } from "@/lib/site";
 
 type Props = { sign: string; quote: string };
 
@@ -12,8 +15,11 @@ const btn =
 export default function ShareActions({ sign, quote }: Props) {
   const [copied, setCopied] = useState(false);
 
+  // Link direto para a página do signo, que tem card próprio no WhatsApp
   function shareUrl(): string {
-    return typeof window !== "undefined" ? window.location.origin : "https://sinergia-astros.app";
+    const origin = typeof window !== "undefined" ? window.location.origin : SITE_URL;
+    const medium = typeof navigator !== "undefined" && "share" in navigator ? "native" : "whatsapp";
+    return `${origin}/signo/${slugFor(sign as SignName)}?utm_source=share&utm_medium=${medium}`;
   }
 
   function shareText(): string {

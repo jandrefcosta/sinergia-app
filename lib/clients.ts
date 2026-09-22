@@ -32,4 +32,4 @@ export function getGemini(): GoogleGenAI {
 }
 
 export const EMAIL_FROM = "Sinergia <ola@sinergia-astros.app>";
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sinergia-astros.app";
+export { SITE_URL } from "@/lib/site";
