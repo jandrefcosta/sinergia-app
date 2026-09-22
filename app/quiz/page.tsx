@@ -7,11 +7,11 @@ import { SITE_URL } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Com que signo você se parece? · Sinergia",
   description:
-    "Dez perguntas sobre o seu jeito. No fim, cruzamos como você responde com o signo em que nasceu.",
+    "Sete perguntas sobre o seu jeito. No fim, cruzamos como você responde com o signo em que nasceu.",
   alternates: { canonical: `${SITE_URL}/quiz` },
   openGraph: {
     title: "Com que signo você se parece?",
-    description: "Dez perguntas sobre o seu jeito. No fim, cruzamos como você responde com o signo em que nasceu.",
+    description: "Sete perguntas sobre o seu jeito. No fim, cruzamos como você responde com o signo em que nasceu.",
     url: `${SITE_URL}/quiz`,
     locale: "pt_BR",
     type: "website",
@@ -27,7 +27,7 @@ export default function QuizPage() {
           Com que signo você <em className="italic text-accent">se parece</em>?
         </h1>
         <p className="max-w-[44ch] text-ink-2">
-          Dez perguntas sobre o seu jeito, sem resposta certa. No fim, cruzamos como você responde com o
+          Sete perguntas sobre o seu jeito, sem resposta certa. No fim, cruzamos como você responde com o
           signo em que nasceu.
         </p>
       </section>

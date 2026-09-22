@@ -58,15 +58,6 @@ export const QUESTIONS: Question[] = [
     ],
   },
   {
-    text: "O que mais te irrita:",
-    options: [
-      { text: "Lentidão e indecisão", signs: ["Áries", "Capricórnio", "Leão"] },
-      { text: "Mudança de plano na última hora", signs: ["Touro", "Virgem", "Câncer"] },
-      { text: "Gente sem assunto", signs: ["Gêmeos", "Sagitário", "Aquário"] },
-      { text: "Falsidade, mesmo pequena", signs: ["Escorpião", "Peixes", "Libra"] },
-    ],
-  },
-  {
     text: "Caiu um dinheiro inesperado. Você:",
     options: [
       { text: "Gasta numa experiência, agora", signs: ["Áries", "Sagitário", "Leão"] },
@@ -82,24 +73,6 @@ export const QUESTIONS: Question[] = [
       { text: "Devagar, com presença e rotina", signs: ["Touro", "Câncer", "Capricórnio"] },
       { text: "Com conversa, liberdade e curiosidade", signs: ["Gêmeos", "Aquário", "Sagitário"] },
       { text: "Cuidando, às vezes demais", signs: ["Virgem", "Peixes", "Libra"] },
-    ],
-  },
-  {
-    text: "Quando algo dá errado:",
-    options: [
-      { text: "Parto pra próxima no mesmo dia", signs: ["Áries", "Sagitário", "Gêmeos"] },
-      { text: "Analiso onde errei e faço uma lista", signs: ["Virgem", "Capricórnio", "Aquário"] },
-      { text: "Preciso falar com alguém para digerir", signs: ["Libra", "Câncer", "Leão"] },
-      { text: "Sumo um tempo e volto diferente", signs: ["Escorpião", "Peixes", "Touro"] },
-    ],
-  },
-  {
-    text: "A palavra que os amigos usam para você:",
-    options: [
-      { text: "Intenso", signs: ["Escorpião", "Áries", "Leão"] },
-      { text: "Confiável", signs: ["Touro", "Capricórnio", "Virgem"] },
-      { text: "Divertido", signs: ["Gêmeos", "Sagitário", "Libra"] },
-      { text: "Sensível", signs: ["Peixes", "Câncer", "Aquário"] },
     ],
   },
 ];

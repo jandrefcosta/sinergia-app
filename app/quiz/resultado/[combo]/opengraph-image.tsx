@@ -19,7 +19,7 @@ export default async function Image({ params }: { params: Promise<{ combo: strin
 
   const quiz = parsed?.quiz ?? null;
   const real = parsed?.real ?? null;
-  const body = quiz ? (real ? tensionLine(quiz, real) : RESULT_COPY[quiz]) : "Dez perguntas sobre o seu jeito.";
+  const body = quiz ? (real ? tensionLine(quiz, real) : RESULT_COPY[quiz]) : "Sete perguntas sobre o seu jeito.";
   const bodySize = body.length > 140 ? 30 : 34;
 
   return new ImageResponse(
