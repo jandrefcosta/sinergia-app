@@ -40,7 +40,7 @@ const STARTS: { sign: SignName; month: number; day: number }[] = [
 
 export type SignByDate = {
   sign: SignName;
-  /** Verdadeiro quando a data fica a até um dia de uma virada de signo. */
+  /** Verdadeiro no dia da virada de signo e no dia anterior, quando o ano e a hora decidem. */
   cusp: boolean;
   /** O outro signo possível, quando na cúspide. */
   neighbor: SignName | null;
@@ -58,8 +58,8 @@ export function signByMonthDay(month: number, day: number): SignByDate {
   const next = STARTS[idx + 1];
   const prev = STARTS[idx - 1];
   const dayOfYear = dayIndex(month, day);
-  const nearNext = next && dayIndex(next.month, next.day) - dayOfYear <= 1;
-  const nearPrev = idx > 0 && dayOfYear - dayIndex(current.month, current.day) <= 1;
+  const nearNext = next && dayIndex(next.month, next.day) - dayOfYear === 1;
+  const nearPrev = idx > 0 && dayOfYear === dayIndex(current.month, current.day);
 
   if (nearNext) return { sign: current.sign, cusp: true, neighbor: next.sign };
   if (nearPrev && prev) return { sign: current.sign, cusp: true, neighbor: prev.sign };

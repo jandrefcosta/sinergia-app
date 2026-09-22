@@ -11,6 +11,10 @@ export default function Footer() {
           Teste
         </a>{" "}
         ·{" "}
+        <a href="/famosos" className="underline underline-offset-2 hover:text-ink">
+          Famosos
+        </a>{" "}
+        ·{" "}
         <a href="/unsubscribe" className="underline underline-offset-2 hover:text-ink">
           Cancelar inscrição
         </a>

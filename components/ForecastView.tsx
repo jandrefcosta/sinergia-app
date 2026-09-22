@@ -1,12 +1,14 @@
 import type { Forecast } from "@/lib/signs";
 import { TEXT_GLYPH } from "@/lib/signs";
 import ShareActions from "@/components/ShareActions";
+import FamousStrip from "@/components/FamousStrip";
+import type { SignName } from "@/lib/ephemeris";
 
 /**
  * Apresentação de uma previsão. Sem estado, serve tanto na home (cliente)
  * quanto na página de compartilhamento por signo (servidor).
  */
-export default function ForecastView({ data }: { data: Forecast }) {
+export default function ForecastView({ data }: { data: Forecast & { period?: string } }) {
   return (
     <>
       <p className="mb-3.5 text-xs uppercase tracking-[0.14em] text-muted">{data.planetLine}</p>
@@ -33,6 +35,7 @@ export default function ForecastView({ data }: { data: Forecast }) {
       </dl>
 
       <ShareActions sign={data.sign} quote={data.quote} />
+      {data.period && <FamousStrip sign={data.sign as SignName} period={data.period} />}
     </>
   );
 }
