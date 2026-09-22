@@ -46,6 +46,7 @@ O modelo nunca é chamado a partir de um clique do usuário. O custo fica limita
 | `ENABLE_SCHEDULER` | `1` liga o agendador interno (só em produção, uma réplica) |
 | `ADMIN_SECRET` | acesso a `/admin` e `/api/admin/*` |
 | `NEXT_PUBLIC_SITE_URL` | opcional, padrão `https://sinergia-astros.app` |
+| `NEXT_PUBLIC_GA_ID` | opcional, ID do Google Analytics 4 (`G-XXXXXXXXXX`). Sem ela, nada é carregado |
 
 ## Agendamento
 

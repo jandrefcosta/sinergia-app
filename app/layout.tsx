@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Instrument_Sans } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
+import { GA_ID } from "@/lib/analytics";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -40,6 +42,7 @@ export default function RootLayout({
     <html lang="pt-BR" className={`${fraunces.variable} ${instrument.variable}`}>
       <body className="bg-paper text-ink font-ui antialiased">
         {children}
+        {GA_ID && <GoogleAnalytics gaId={GA_ID} />}
       </body>
     </html>
   );

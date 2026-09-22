@@ -8,6 +8,7 @@ import Forecast from "@/components/Forecast";
 import EmailCapture from "@/components/EmailCapture";
 import Footer from "@/components/Footer";
 import { SIGN_SYMBOLS, fetchForecast, type ForecastState } from "@/lib/signs";
+import { events } from "@/lib/analytics";
 
 const STORAGE_KEY = "sinergia-sign";
 
@@ -29,6 +30,7 @@ export default function Home() {
     try {
       const data = await fetchForecast(s);
       setState({ status: "ready", sign: s, data });
+      events.forecastViewed(s, data.source);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Não foi possível carregar a previsão.";
       setState({ status: "error", sign: s, message });
@@ -40,6 +42,7 @@ export default function Home() {
     const stored = readStoredSign();
     if (stored) {
       setSign(stored);
+      events.signSelected(stored, true);
       load(stored);
     }
   }, [load]);
@@ -47,6 +50,7 @@ export default function Home() {
   function select(s: string) {
     setSign(s);
     try { localStorage.setItem(STORAGE_KEY, s); } catch {}
+    events.signSelected(s, false);
     load(s);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }

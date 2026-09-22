@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Masthead from "@/components/Masthead";
 import Footer from "@/components/Footer";
+import { events } from "@/lib/analytics";
 
 type State = "idle" | "loading" | "done" | "error" | "invalid";
 
@@ -32,6 +33,7 @@ function UnsubscribeContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
+      if (res.ok) events.unsubscribe();
       setState(res.ok ? "done" : "error");
     } catch {
       setState("error");

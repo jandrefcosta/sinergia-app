@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SIGNS } from "@/lib/ephemeris";
 import { SIGN_SYMBOLS, TEXT_GLYPH } from "@/lib/signs";
+import { events } from "@/lib/analytics";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -44,8 +45,10 @@ export default function EmailCapture({ selectedSign }: Props) {
         body: JSON.stringify({ email, sign }),
       });
       if (!profileRes.ok) throw new Error();
+      events.subscribe(sign);
       setDone(true);
     } catch {
+      events.subscribeFailed(sign);
       setError("Não deu para cadastrar agora. Tente de novo em instantes.");
     } finally {
       setLoading(false);

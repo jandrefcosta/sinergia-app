@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { events } from "@/lib/analytics";
 
 type Props = { sign: string; quote: string };
 
@@ -23,11 +24,13 @@ export default function ShareActions({ sign, quote }: Props) {
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ title: "Sinergia", text: shareText(), url: shareUrl() });
+        events.share("native", sign);
       } catch {
         // cancelado pelo usuário
       }
       return;
     }
+    events.share("whatsapp", sign);
     const msg = encodeURIComponent(`${shareText()}\n${shareUrl()}`);
     window.open(`https://wa.me/?text=${msg}`, "_blank", "noopener,noreferrer");
   }
@@ -35,6 +38,7 @@ export default function ShareActions({ sign, quote }: Props) {
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(shareUrl());
+      events.share("copy", sign);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
