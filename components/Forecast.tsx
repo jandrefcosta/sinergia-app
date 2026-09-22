@@ -1,6 +1,6 @@
 "use client";
 
-import type { ForecastState } from "@/lib/signs";
+import { TEXT_GLYPH, type ForecastState } from "@/lib/signs";
 import ShareActions from "@/components/ShareActions";
 
 type Props = {
@@ -38,8 +38,8 @@ export default function Forecast({ state, onRetry }: Props) {
             <h2 className="font-display font-light text-[clamp(44px,11vw,72px)] leading-none tracking-[-0.03em]">
               {state.data.sign}
             </h2>
-            <span className="font-display text-[clamp(30px,7vw,44px)] text-accent" aria-hidden="true">
-              {state.data.symbol}
+            <span className="font-glyph text-[clamp(26px,6vw,38px)] text-accent" aria-hidden="true">
+              {state.data.symbol}{TEXT_GLYPH}
             </span>
           </div>
 

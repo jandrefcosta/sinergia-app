@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SIGNS } from "@/lib/ephemeris";
-import { SIGN_SYMBOLS } from "@/lib/signs";
+import { SIGN_SYMBOLS, TEXT_GLYPH } from "@/lib/signs";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -95,7 +95,7 @@ export default function EmailCapture({ selectedSign }: Props) {
               >
                 <option value="" disabled>Signo</option>
                 {SIGNS.map((s) => (
-                  <option key={s} value={s}>{SIGN_SYMBOLS[s]} {s}</option>
+                  <option key={s} value={s}>{SIGN_SYMBOLS[s]}{TEXT_GLYPH} {s}</option>
                 ))}
               </select>
             </div>

@@ -3,6 +3,9 @@
  * (sem dependência de Redis ou do SDK de geração).
  */
 
+/** Sufixo U+FE0E força apresentação em texto, evitando o emoji colorido do sistema. */
+export const TEXT_GLYPH = "︎";
+
 export const SIGN_SYMBOLS: Record<string, string> = {
   Áries: "♈", Touro: "♉", Gêmeos: "♊", Câncer: "♋",
   Leão: "♌", Virgem: "♍", Libra: "♎", Escorpião: "♏",

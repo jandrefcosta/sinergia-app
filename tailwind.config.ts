@@ -23,6 +23,8 @@ const config: Config = {
       fontFamily: {
         display: ["var(--font-fraunces)", "Iowan Old Style", "Georgia", "serif"],
         ui: ["var(--font-instrument)", "Helvetica Neue", "Arial", "sans-serif"],
+        // Glifos dos signos: fontes de símbolos monocromáticas, nunca a de emoji
+        glyph: ["Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Noto Sans Symbols", "DejaVu Sans", "sans-serif"],
       },
       maxWidth: {
         page: "640px",

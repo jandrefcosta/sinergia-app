@@ -1,7 +1,7 @@
 "use client";
 
 import { SIGNS } from "@/lib/ephemeris";
-import { SIGN_SYMBOLS } from "@/lib/signs";
+import { SIGN_SYMBOLS, TEXT_GLYPH } from "@/lib/signs";
 
 type Props = {
   selected: string | null;
@@ -30,7 +30,7 @@ export default function SignPicker({ selected, onSelect }: Props) {
                   active ? "text-accent shadow-[inset_0_-3px_0_var(--accent)]" : "text-ink-2 hover:text-ink",
                 ].join(" ")}
               >
-                <span className="font-display text-xl leading-[1.1]">{SIGN_SYMBOLS[sign]}</span>
+                <span className="font-glyph text-lg leading-[1.1]" aria-hidden="true">{SIGN_SYMBOLS[sign]}{TEXT_GLYPH}</span>
                 <span className={`text-[13px] tracking-[0.02em] ${active ? "font-semibold" : ""}`}>{sign}</span>
               </button>
             </li>

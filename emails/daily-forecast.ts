@@ -30,7 +30,7 @@ export function dailyForecastEmailHtml(forecast: Forecast, email: string): strin
   const body = `
     ${eyebrow(escapeHtml(planetLine))}
     <p style="margin:0 0 24px;font-family:${fonts.display};font-weight:normal;font-size:52px;line-height:1;letter-spacing:-0.02em;color:${colors.ink};">
-      ${escapeHtml(sign)} <span style="font-size:32px;color:${colors.accent};">${symbol}</span>
+      ${escapeHtml(sign)} <span style="font-family:'Segoe UI Symbol','Apple Symbols',sans-serif;font-size:32px;color:${colors.accent};">${symbol}&#xFE0E;</span>
     </p>
     <p style="margin:0 0 32px;font-family:${fonts.display};font-size:24px;line-height:1.35;color:${colors.ink};">
       <span style="font-style:italic;color:${colors.accent};">${first}</span>${rest}
