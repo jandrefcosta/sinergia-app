@@ -1,17 +1,10 @@
-import { Redis } from "@upstash/redis";
 import { NextRequest, NextResponse } from "next/server";
+import { getRedis } from "@/lib/clients";
 import { VALID_SIGNS } from "@/lib/forecast";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // YYYY-MM-DD, entre 1900 e hoje
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function getRedis(): Redis | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token || url === "your_upstash_url_here") return null;
-  return new Redis({ url, token });
-}
 
 const TIME_RE = /^\d{2}:\d{2}$/;
 
@@ -24,17 +17,18 @@ export async function POST(req: NextRequest) {
   if (!sign || !VALID_SIGNS.includes(sign)) {
     return NextResponse.json({ error: "Signo inválido" }, { status: 400 });
   }
-  if (!birthdate || !DATE_RE.test(birthdate)) {
+  if (birthdate !== undefined && birthdate !== "" && !DATE_RE.test(birthdate)) {
     return NextResponse.json({ error: "Data de nascimento inválida" }, { status: 400 });
   }
   if (birthtime !== undefined && birthtime !== "" && !TIME_RE.test(birthtime)) {
     return NextResponse.json({ error: "Horário inválido" }, { status: 400 });
   }
 
-  const birth = new Date(birthdate);
-  const now = new Date();
-  if (isNaN(birth.getTime()) || birth > now || birth.getFullYear() < 1900) {
-    return NextResponse.json({ error: "Data de nascimento inválida" }, { status: 400 });
+  if (birthdate) {
+    const birth = new Date(birthdate);
+    if (isNaN(birth.getTime()) || birth > new Date() || birth.getFullYear() < 1900) {
+      return NextResponse.json({ error: "Data de nascimento inválida" }, { status: 400 });
+    }
   }
 
   const redis = getRedis();
@@ -53,7 +47,7 @@ export async function POST(req: NextRequest) {
   // Salva perfil como Hash — upsert seguro
   await redis.hset(`sinergia:profile:${normalizedEmail}`, {
     sign,
-    birthdate,
+    ...(birthdate ? { birthdate } : {}),
     ...(birthtime ? { birthtime } : {}),
   });
 

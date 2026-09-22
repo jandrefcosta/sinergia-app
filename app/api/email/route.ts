@@ -1,20 +1,6 @@
-import { Redis } from "@upstash/redis";
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
+import { EMAIL_FROM, getRedis, getResend } from "@/lib/clients";
 import { welcomeEmailHtml, welcomeEmailSubject } from "@/emails/welcome";
-
-function getRedis(): Redis | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token || url === "your_upstash_url_here") return null;
-  return new Redis({ url, token });
-}
-
-function getResend(): Resend | null {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) return null;
-  return new Resend(key);
-}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -42,7 +28,7 @@ export async function POST(req: NextRequest) {
     const resend = getResend();
     if (resend) {
       await resend.emails.send({
-        from: "Sinergia <ola@sinergia-astros.app>",
+        from: EMAIL_FROM,
         to: email,
         subject: welcomeEmailSubject,
         html: welcomeEmailHtml(email),

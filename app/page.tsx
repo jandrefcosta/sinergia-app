@@ -1,69 +1,76 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import Header from "@/components/Header";
-import HeroSection from "@/components/HeroSection";
-import ForecastSection from "@/components/ForecastSection";
-import RetentionSection from "@/components/RetentionSection";
-import HistorySection from "@/components/HistorySection";
-import FeedbackSection from "@/components/FeedbackSection";
-import BottomNav from "@/components/BottomNav";
+import { useCallback, useEffect, useState } from "react";
+import Masthead from "@/components/Masthead";
+import Intro from "@/components/Intro";
+import SignPicker from "@/components/SignPicker";
+import Forecast from "@/components/Forecast";
+import EmailCapture from "@/components/EmailCapture";
 import Footer from "@/components/Footer";
-import { generateForecast, type ForecastState } from "@/lib/forecasts";
+import { SIGN_SYMBOLS, fetchForecast, type ForecastState } from "@/lib/signs";
+
+const STORAGE_KEY = "sinergia-sign";
+
+function readStoredSign(): string | null {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY);
+    return v && SIGN_SYMBOLS[v] ? v : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function Home() {
-  const [forecastState, setForecastState] = useState<ForecastState>({
-    status: "idle",
-  });
+  const [sign, setSign] = useState<string | null>(null);
+  const [state, setState] = useState<ForecastState>({ status: "idle" });
 
-  const handleGenerate = useCallback(async (sign: string, name: string) => {
-    setForecastState({ status: "loading", sign, name });
-
-    // Scroll to forecast section on mobile
-    if (window.innerWidth < 1024) {
-      setTimeout(() => {
-        document.getElementById("forecast")?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 100);
-    }
-
+  const load = useCallback(async (s: string) => {
+    setState({ status: "loading", sign: s });
     try {
-      const data = await generateForecast(sign);
-      setForecastState({ status: "ready", sign, name, data });
+      const data = await fetchForecast(s);
+      setState({ status: "ready", sign: s, data });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Falha ao consultar os astros.";
-      setForecastState({ status: "error", message });
+      const message = err instanceof Error ? err.message : "Não foi possível carregar a previsão.";
+      setState({ status: "error", sign: s, message });
     }
   }, []);
 
+  // Visita seguinte: abre direto na previsão do signo lembrado
+  useEffect(() => {
+    const stored = readStoredSign();
+    if (stored) {
+      setSign(stored);
+      load(stored);
+    }
+  }, [load]);
+
+  function select(s: string) {
+    setSign(s);
+    try { localStorage.setItem(STORAGE_KEY, s); } catch {}
+    load(s);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const chosen = sign !== null;
+
   return (
-    <>
-      <Header />
+    <div className="mx-auto flex max-w-page flex-col px-5 pt-7 pb-20">
+      <Masthead />
 
-      <main className="pt-28 pb-28 md:pb-24 px-4 md:px-6 min-h-screen bg-mesh">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
-          {/* Left Column — Hero & Onboarding */}
-          <div className="lg:col-span-5">
-            <HeroSection
-              onGenerate={handleGenerate}
-              isGenerating={forecastState.status === "loading"}
-            />
-          </div>
+      {chosen ? (
+        <>
+          <Forecast state={state} onRetry={() => sign && load(sign)} />
+          <SignPicker selected={sign} onSelect={select} />
+        </>
+      ) : (
+        <>
+          <Intro />
+          <SignPicker selected={sign} onSelect={select} />
+        </>
+      )}
 
-          {/* Right Column — Forecast, Retention, History */}
-          <div className="lg:col-span-7 space-y-8">
-            <ForecastSection forecastState={forecastState} />
-            <RetentionSection />
-            <HistorySection />
-            <FeedbackSection />
-          </div>
-        </div>
-      </main>
-
+      <EmailCapture selectedSign={sign} />
       <Footer />
-      <BottomNav />
-    </>
+    </div>
   );
 }

@@ -1,30 +1,31 @@
 import type { Metadata } from "next";
-import { Inter, Newsreader } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
+import { Fraunces, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const fraunces = Fraunces({
   subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  variable: "--font-newsreader",
+  variable: "--font-fraunces",
   display: "swap",
   style: ["normal", "italic"],
-  weight: ["400", "500", "600", "700"],
+  weight: "variable",
+  axes: ["opsz"],
+});
+
+const instrument = Instrument_Sans({
+  subsets: ["latin"],
+  variable: "--font-instrument",
+  display: "swap",
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
-  title: "Sinergia — Sua Pílula de Clareza",
+  title: "Sinergia — O céu de hoje, lido para você",
   description:
-    "Receba sua previsão astrológica personalizada em menos de 10 segundos. Sinergia é o seu guia celestial diário.",
-  keywords: ["horóscopo", "astrologia", "signos", "previsão diária", "mapa astral"],
+    "Uma previsão por dia, escrita com calma a partir das posições reais dos planetas. Escolha seu signo e leia em menos de um minuto.",
+  keywords: ["horóscopo", "astrologia", "signos", "previsão diária"],
   openGraph: {
-    title: "Sinergia — Sua Pílula de Clareza",
-    description: "Receba sua previsão astrológica em menos de 10 segundos.",
+    title: "Sinergia — O céu de hoje, lido para você",
+    description: "Uma previsão por dia, escrita com calma. Escolha seu signo.",
     type: "website",
     locale: "pt_BR",
   },
@@ -36,17 +37,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`dark ${inter.variable} ${newsreader.variable}`}>
-      <head>
-        {/* Material Symbols Outlined */}
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-        />
-      </head>
-      <body className="bg-surface text-on-surface font-body antialiased">
+    <html lang="pt-BR" className={`${fraunces.variable} ${instrument.variable}`}>
+      <body className="bg-paper text-ink font-ui antialiased">
         {children}
-        <Analytics />
       </body>
     </html>
   );

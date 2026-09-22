@@ -1,29 +1,10 @@
-export type ForecastCard = {
-  icon: string;
-  label: string;
-  text: string;
-  color: string;
-};
+import type { Forecast } from "@/lib/forecast";
 
-export type ForecastData = {
-  sign: string;
-  symbol: string;
-  planetLine: string;
-  quote: string;
-  cards: [ForecastCard, ForecastCard, ForecastCard];
-};
-
-export type ForecastStatus = "idle" | "loading" | "ready";
-
-export type ForecastState =
-  | { status: "idle" }
-  | { status: "loading"; sign: string; name: string }
-  | { status: "ready"; sign: string; name: string; data: ForecastData }
-  | { status: "error"; message: string };
-
-// ─── Mock forecast data keyed by zodiac sign name ───────────────────────────
-
-const FORECASTS: Record<string, ForecastData> = {
+/**
+ * Textos de reserva por signo. Usados quando não há previsão gerada e
+ * publicada para o dia (falha de geração, cron não executado, Redis fora).
+ */
+export const FALLBACK_FORECASTS: Record<string, Forecast> = {
   Áries: {
     sign: "Áries",
     symbol: "♈",
@@ -349,22 +330,3 @@ const FORECASTS: Record<string, ForecastData> = {
     ],
   },
 };
-
-/**
- * Calls the /api/forecast route to generate a forecast via LLM.
- * Throws an error with the API message so the caller can surface it to the user.
- */
-export async function generateForecast(sign: string): Promise<ForecastData> {
-  const res = await fetch("/api/forecast", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sign }),
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? "Falha ao consultar os astros. Tente novamente.");
-  }
-
-  return await res.json();
-}

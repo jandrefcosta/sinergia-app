@@ -1,20 +1,6 @@
-import { Redis } from "@upstash/redis";
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
+import { EMAIL_FROM, getRedis, getResend } from "@/lib/clients";
 import { completeProfileEmailHtml, completeProfileEmailSubject } from "@/emails/complete-profile";
-
-function getRedis(): Redis | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
-  return new Redis({ url, token });
-}
-
-function getResend(): Resend | null {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) return null;
-  return new Resend(key);
-}
 
 export async function POST(req: NextRequest) {
   // Proteção por secret
@@ -55,7 +41,7 @@ export async function POST(req: NextRequest) {
     const batch = targets.slice(i, i + BATCH_SIZE);
     await resend.batch.send(
       batch.map((email) => ({
-        from: "Sinergia <ola@sinergia-astros.app>",
+        from: EMAIL_FROM,
         to: email,
         subject: completeProfileEmailSubject,
         html: completeProfileEmailHtml(email),
