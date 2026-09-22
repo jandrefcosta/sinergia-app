@@ -1,65 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { events } from "@/lib/analytics";
+import ShareButtons from "@/components/ShareButtons";
 import { slugFor } from "@/lib/slugs";
 import type { SignName } from "@/lib/ephemeris";
-import { SITE_URL } from "@/lib/site";
 
 type Props = { sign: string; quote: string };
 
-const btn =
-  "text-sm font-medium text-ink border-b border-rule-strong pb-0.5 cursor-pointer hover:border-ink transition-colors " +
-  "focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
-
+/** Compartilhar a previsão do dia: manda o link da página do signo, que tem card próprio. */
 export default function ShareActions({ sign, quote }: Props) {
-  const [copied, setCopied] = useState(false);
-
-  // Link direto para a página do signo, que tem card próprio no WhatsApp
-  function shareUrl(): string {
-    const origin = typeof window !== "undefined" ? window.location.origin : SITE_URL;
-    const medium = typeof navigator !== "undefined" && "share" in navigator ? "native" : "whatsapp";
-    return `${origin}/signo/${slugFor(sign as SignName)}?utm_source=share&utm_medium=${medium}`;
-  }
-
-  function shareText(): string {
-    return `${sign}, hoje: "${quote}"\n\nSinergia, o céu de hoje lido para você.`;
-  }
-
-  async function nativeOrWhatsApp() {
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: "Sinergia", text: shareText(), url: shareUrl() });
-        events.share("native", sign);
-      } catch {
-        // cancelado pelo usuário
-      }
-      return;
-    }
-    events.share("whatsapp", sign);
-    const msg = encodeURIComponent(`${shareText()}\n${shareUrl()}`);
-    window.open(`https://wa.me/?text=${msg}`, "_blank", "noopener,noreferrer");
-  }
-
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(shareUrl());
-      events.share("copy", sign);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      // clipboard indisponível
-    }
-  }
-
   return (
-    <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2.5">
-      <button type="button" onClick={nativeOrWhatsApp} className={btn}>
-        Compartilhar
-      </button>
-      <button type="button" onClick={copyLink} className={btn} aria-live="polite">
-        {copied ? "Link copiado" : "Copiar link"}
-      </button>
-    </div>
+    <ShareButtons
+      url={`/signo/${slugFor(sign as SignName)}`}
+      text={`${sign}, hoje: "${quote}"\n\nSinergia, o céu de hoje lido para você.`}
+      label={sign}
+    />
   );
 }

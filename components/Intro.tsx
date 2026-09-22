@@ -15,6 +15,10 @@ export default function Intro() {
         <Link href="/qual-e-o-meu-signo" className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">
           Descubra pela data de nascimento
         </Link>
+        {" "}· Ou faça o{" "}
+        <Link href="/quiz" className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">
+          teste de personalidade
+        </Link>
       </p>
     </section>
   );

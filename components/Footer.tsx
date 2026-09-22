@@ -7,6 +7,10 @@ export default function Footer() {
           Qual é o meu signo?
         </a>{" "}
         ·{" "}
+        <a href="/quiz" className="underline underline-offset-2 hover:text-ink">
+          Teste
+        </a>{" "}
+        ·{" "}
         <a href="/unsubscribe" className="underline underline-offset-2 hover:text-ink">
           Cancelar inscrição
         </a>
