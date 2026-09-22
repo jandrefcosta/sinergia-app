@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Draft, Forecast, Published } from "@/lib/forecast";
 import type { Sky } from "@/lib/ephemeris";
+import { SIGN_SYMBOLS, TEXT_GLYPH } from "@/lib/signs";
 
 type Row = { sign: string; draft: Draft | null; published: Published | null };
 type Payload = { period: string; today: string; sky: Sky | null; rows: Row[] };
+type Action = "save" | "approve" | "unapprove" | "publish" | "regenerate";
 
 const SECRET_KEY = "sinergia-admin-secret";
 
@@ -19,26 +21,50 @@ function shiftPeriod(period: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+function periodLabel(period: string): string {
+  return new Date(`${period}T12:00:00-03:00`)
+    .toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Sao_Paulo" })
+    .replace("-feira", "");
+}
+
+function timeLabel(iso: string): string {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+}
+
+// ─── Estilos compartilhados ─────────────────────────────────────────────────
+
+const link =
+  "text-sm font-medium text-ink border-b border-rule-strong pb-0.5 cursor-pointer hover:border-ink transition-colors " +
+  "disabled:opacity-40 disabled:cursor-default focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
+const primary =
+  "bg-accent text-accent-ink px-4 py-2 text-sm font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-default " +
+  "focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+const field =
+  "w-full bg-field text-ink border border-rule-strong px-3 py-2 leading-relaxed placeholder:text-muted resize-y " +
+  "focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-accent";
+const eyebrow = "text-xs uppercase tracking-[0.14em] text-muted";
+
+// ─── Página ─────────────────────────────────────────────────────────────────
+
 export default function AdminPage() {
   const [secret, setSecret] = useState("");
   const [input, setInput] = useState("");
   const [period, setPeriod] = useState<string | null>(null);
   const [payload, setPayload] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => { setSecret(readSecret()); }, []);
 
   const load = useCallback(async (s: string, p: string | null) => {
-    setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/forecasts${p ? `?period=${p}` : ""}`, {
-        headers: { "x-admin-secret": s },
-      });
+      const res = await fetch(`/api/admin/forecasts${p ? `?period=${p}` : ""}`, { headers: { "x-admin-secret": s } });
       if (res.status === 401) {
         setError("Secret inválido.");
         setPayload(null);
+        try { sessionStorage.removeItem(SECRET_KEY); } catch {}
+        setSecret("");
         return;
       }
       if (!res.ok) throw new Error();
@@ -47,8 +73,6 @@ export default function AdminPage() {
       setPeriod(data.period);
     } catch {
       setError("Não foi possível carregar.");
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -65,137 +89,207 @@ export default function AdminPage() {
     setSecret(s);
   }
 
-  async function act(sign: string, action: string, data?: Partial<Forecast>) {
-    if (!period) return;
-    setLoading(true);
+  async function call(sign: string, action: Action, data?: Partial<Forecast>): Promise<boolean> {
+    if (!period) return false;
+    const res = await fetch("/api/admin/forecasts", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "x-admin-secret": secret },
+      body: JSON.stringify({ period, sign, action, data }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? "Falha");
+    }
+    return true;
+  }
+
+  async function act(sign: string, action: Action, data?: Partial<Forecast>) {
+    setBusy(`${sign}:${action}`);
     setError(null);
     try {
-      const res = await fetch("/api/admin/forecasts", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "x-admin-secret": secret },
-        body: JSON.stringify({ period, sign, action, data }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "Falha");
-      }
+      await call(sign, action, data);
       await load(secret, period);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao processar.");
-      setLoading(false);
+    } finally {
+      setBusy(null);
     }
   }
 
-  async function generateAll() {
-    if (!period) return;
-    setLoading(true);
+  async function actAll(label: string, targets: string[], action: Action) {
+    if (targets.length === 0) return;
+    setBusy(label);
     setError(null);
-    try {
-      // Gera os que faltam, um a um, via ação de regenerar apenas para signos sem rascunho
-      const missing = payload?.rows.filter((r) => !r.draft).map((r) => r.sign) ?? [];
-      for (const sign of missing) {
-        await fetch("/api/admin/forecasts", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", "x-admin-secret": secret },
-          body: JSON.stringify({ period, sign, action: "regenerate" }),
-        });
-      }
-      await load(secret, period);
-    } catch {
-      setError("Falha ao gerar.");
-      setLoading(false);
+    let failed = 0;
+    for (const sign of targets) {
+      try { await call(sign, action); } catch { failed++; }
     }
+    if (failed) setError(`${failed} de ${targets.length} falharam.`);
+    await load(secret, period);
+    setBusy(null);
   }
 
+  // ── Login ──
   if (!secret) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6">
-        <form onSubmit={handleLogin} className="w-full max-w-sm space-y-3">
-          <h1 className="font-display text-2xl">Sinergia · Admin</h1>
-          <input
-            id="admin-secret"
-            type="password"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="ADMIN_SECRET"
-            className="w-full bg-field border border-rule-strong rounded-lg px-4 py-3 text-sm"
-          />
-          <button type="submit" className="w-full py-3 bg-accent text-accent-ink rounded-lg text-sm font-semibold">
-            Entrar
-          </button>
+      <div className="mx-auto flex max-w-page flex-col px-5 pt-7 pb-20">
+        <AdminHeader />
+        <form onSubmit={handleLogin} className="pt-11 space-y-4 max-w-sm">
+          <h1 className="font-display font-light text-[clamp(30px,7vw,40px)] leading-[1.06] tracking-[-0.02em]">
+            Entrar na <em className="italic text-accent">redação</em>.
+          </h1>
+          <label htmlFor="admin-secret" className={eyebrow}>Admin secret</label>
+          <input id="admin-secret" type="password" value={input} onChange={(e) => setInput(e.target.value)} autoComplete="current-password" className={field} />
+          {error && <p role="alert" className="text-xs text-danger">{error}</p>}
+          <button type="submit" className={primary}>Entrar</button>
         </form>
-      </main>
+      </div>
     );
   }
 
-  const approved = payload?.rows.filter((r) => r.draft?.status === "approved").length ?? 0;
-  const drafts = payload?.rows.filter((r) => r.draft).length ?? 0;
-  const published = payload?.rows.filter((r) => r.published).length ?? 0;
+  const rows = payload?.rows ?? [];
+  const drafts = rows.filter((r) => r.draft);
+  const approved = rows.filter((r) => r.draft?.status === "approved");
+  const published = rows.filter((r) => r.published);
+  const missing = rows.filter((r) => !r.draft).map((r) => r.sign);
+  const toApprove = rows.filter((r) => r.draft && r.draft.status !== "approved").map((r) => r.sign);
+  const toPublish = rows.filter((r) => r.draft && !r.published).map((r) => r.sign);
+  const isToday = payload && period === payload.today;
+  const isTomorrow = payload && period === shiftPeriod(payload.today, 1);
 
   return (
-    <main className="min-h-screen max-w-3xl mx-auto p-6 space-y-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-display text-2xl">Sinergia · Previsões</h1>
-        <div className="flex items-center gap-2 text-sm">
-          <button onClick={() => period && load(secret, shiftPeriod(period, -1))} className="px-3 py-2 rounded-lg bg-field border border-rule-strong">‹</button>
-          <span className="font-ui tabular-nums">{period ?? "…"}</span>
-          <button onClick={() => period && load(secret, shiftPeriod(period, 1))} className="px-3 py-2 rounded-lg bg-field border border-rule-strong">›</button>
-          {payload && period !== payload.today && (
-            <button onClick={() => load(secret, payload.today)} className="px-3 py-2 rounded-lg bg-field border border-rule-strong">hoje</button>
-          )}
-        </div>
-      </header>
+    <div className="mx-auto flex max-w-page flex-col px-5 pt-7 pb-20">
+      <AdminHeader onLogout={() => { try { sessionStorage.removeItem(SECRET_KEY); } catch {} setSecret(""); setPayload(null); }} />
 
-      {error && <p className="text-danger text-sm">{error}</p>}
-      {loading && <p className="text-ink-2 text-sm">Processando…</p>}
-
-      {payload && (
-        <>
-          <section className="text-sm text-ink-2 space-y-2">
-            <p>
-              Rascunhos: {drafts}/12 · Aprovados: {approved} · Publicados: {published}
-              {drafts < 12 && (
-                <button onClick={generateAll} disabled={loading} className="ml-3 px-3 py-1 rounded-lg bg-accent text-accent-ink text-xs font-semibold disabled:opacity-50">
-                  Gerar os que faltam
-                </button>
-              )}
-            </p>
-            {payload.sky && (
-              <details>
-                <summary className="cursor-pointer">Céu do dia ({payload.sky.moonPhase})</summary>
-                <ul className="mt-2 grid grid-cols-2 gap-x-6 text-xs">
-                  {payload.sky.positions.map((p) => (
-                    <li key={p.planet}>{p.planet} em {p.sign} {p.degree}°{p.retrograde ? " ℞" : ""}</li>
-                  ))}
-                </ul>
-                <ul className="mt-2 text-xs space-y-0.5">
-                  {payload.sky.aspects.map((a, i) => (
-                    <li key={i}>{a.a} {a.type} {a.b} (orbe {a.orb}°)</li>
-                  ))}
-                </ul>
-              </details>
+      {/* Navegação de datas */}
+      <section className="pt-9 pb-6 border-b border-ink">
+        <p className={eyebrow}>
+          {isToday ? "Hoje" : isTomorrow ? "Amanhã" : "Edição"}
+        </p>
+        <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <h1 className="font-display font-light text-[clamp(28px,6.5vw,40px)] leading-[1.06] tracking-[-0.02em]">
+            {period ? periodLabel(period) : "…"}
+          </h1>
+          <nav className="flex items-center gap-4 text-sm" aria-label="Trocar de dia">
+            <button type="button" onClick={() => period && load(secret, shiftPeriod(period, -1))} className={link}>Anterior</button>
+            <button type="button" onClick={() => period && load(secret, shiftPeriod(period, 1))} className={link}>Próximo</button>
+            {payload && !isTomorrow && (
+              <button type="button" onClick={() => load(secret, shiftPeriod(payload.today, 1))} className={link}>Amanhã</button>
             )}
-          </section>
+            {payload && !isToday && (
+              <button type="button" onClick={() => load(secret, payload.today)} className={link}>Hoje</button>
+            )}
+          </nav>
+        </div>
+      </section>
 
-          <section className="space-y-6">
-            {payload.rows.map((row) => (
-              <DraftCard key={row.sign} row={row} disabled={loading} onAct={act} />
-            ))}
-          </section>
-        </>
+      {/* Resumo e ações em lote */}
+      {payload && (
+        <section className="py-5 border-b border-rule space-y-3">
+          <p className="text-sm text-ink-2">
+            <Stat n={drafts.length} label="rascunhos" /> · <Stat n={approved.length} label="aprovados" /> ·{" "}
+            <Stat n={published.length} label="publicados" />
+            {payload.sky && <span className="text-muted"> · {payload.sky.moonPhase}</span>}
+          </p>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {missing.length > 0 && (
+              <button type="button" disabled={!!busy} onClick={() => actAll("gerar", missing, "regenerate")} className={primary}>
+                {busy === "gerar" ? "Gerando…" : `Gerar ${missing.length === 12 ? "os doze" : `os ${missing.length} que faltam`}`}
+              </button>
+            )}
+            {toApprove.length > 0 && (
+              <button type="button" disabled={!!busy} onClick={() => actAll("aprovar", toApprove, "approve")} className={link}>
+                {busy === "aprovar" ? "Aprovando…" : `Aprovar todos (${toApprove.length})`}
+              </button>
+            )}
+            {toPublish.length > 0 && (
+              <button type="button" disabled={!!busy} onClick={() => actAll("publicar", toPublish, "publish")} className={link}>
+                {busy === "publicar" ? "Publicando…" : `Publicar todos (${toPublish.length})`}
+              </button>
+            )}
+          </div>
+          {payload.sky && <SkyDetails sky={payload.sky} />}
+        </section>
       )}
-    </main>
+
+      {error && <p role="alert" className="pt-4 text-sm text-danger">{error}</p>}
+      {!payload && !error && <p className="pt-6 text-sm text-muted">Carregando…</p>}
+
+      {/* Signos */}
+      {payload && (
+        <section className="divide-y divide-rule">
+          {rows.map((row) => (
+            <SignEditor key={`${period}:${row.sign}`} row={row} busy={busy} onAct={act} />
+          ))}
+        </section>
+      )}
+    </div>
   );
 }
 
-function DraftCard({
+// ─── Peças ──────────────────────────────────────────────────────────────────
+
+function AdminHeader({ onLogout }: { onLogout?: () => void }) {
+  return (
+    <header className="flex items-baseline justify-between border-b border-ink pb-3.5">
+      <a href="/" className="font-display text-[22px] font-semibold tracking-tight text-ink">
+        Siner<em className="font-light italic text-accent">gia</em>
+        <span className="ml-3 font-ui text-xs font-normal uppercase tracking-[0.14em] text-muted">Redação</span>
+      </a>
+      {onLogout && (
+        <button type="button" onClick={onLogout} className="text-xs uppercase tracking-[0.14em] text-muted hover:text-ink">
+          Sair
+        </button>
+      )}
+    </header>
+  );
+}
+
+function Stat({ n, label }: { n: number; label: string }) {
+  return (
+    <span>
+      <span className="font-semibold text-ink tabular-nums">{n}</span>
+      <span className="text-muted">/12</span> {label}
+    </span>
+  );
+}
+
+function SkyDetails({ sky }: { sky: Sky }) {
+  return (
+    <details className="text-sm">
+      <summary className="cursor-pointer text-ink-2 hover:text-ink">Céu do dia</summary>
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+        <ul className="m-0 p-0 list-none space-y-0.5 text-ink-2">
+          {sky.positions.map((p) => (
+            <li key={p.planet} className="flex justify-between gap-4">
+              <span>{p.planet}</span>
+              <span className="tabular-nums text-right">
+                {p.sign} {p.degree}°{p.retrograde ? <span className="text-accent"> ℞</span> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <ul className="m-0 p-0 list-none space-y-0.5 text-ink-2">
+          {sky.aspects.map((a, i) => (
+            <li key={i} className="flex justify-between gap-4">
+              <span>{a.a} <span className="font-display italic text-accent">{a.type}</span> {a.b}</span>
+              <span className="tabular-nums text-muted">{a.orb}°</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </details>
+  );
+}
+
+function SignEditor({
   row,
-  disabled,
+  busy,
   onAct,
 }: {
   row: Row;
-  disabled: boolean;
-  onAct: (sign: string, action: string, data?: Partial<Forecast>) => Promise<void>;
+  busy: string | null;
+  onAct: (sign: string, action: Action, data?: Partial<Forecast>) => Promise<void>;
 }) {
   const { sign, draft, published } = row;
   const [quote, setQuote] = useState(draft?.data.quote ?? "");
@@ -206,80 +300,90 @@ function DraftCard({
     setCards(draft?.data.cards.map((c) => c.text) ?? ["", "", ""]);
   }, [draft]);
 
-  const dirty =
-    !!draft &&
-    (quote !== draft.data.quote || cards.some((t, i) => t !== draft.data.cards[i].text));
-
-  const edited = (): Partial<Forecast> => ({
-    quote,
-    cards: cards.map((text, i) => ({ ...draft!.data.cards[i], text })),
-  });
+  const dirty = !!draft && (quote !== draft.data.quote || cards.some((t, i) => t !== draft.data.cards[i].text));
+  const edited = (): Partial<Forecast> => ({ quote, cards: cards.map((text, i) => ({ ...draft!.data.cards[i], text })) });
+  const isBusy = (a: Action) => busy === `${sign}:${a}`;
+  const anyBusy = !!busy;
 
   const status = published
-    ? `publicado (${published.source})`
+    ? { text: `Publicado às ${timeLabel(published.publishedAt)}${published.source === "fallback" ? ", texto de reserva" : published.source === "auto" ? ", sem aprovação" : ""}`, tone: "text-ink" }
     : draft?.status === "approved"
-      ? "aprovado"
+      ? { text: "Aprovado, publica às 06h05", tone: "text-accent" }
       : draft
-        ? "rascunho"
-        : "sem rascunho";
+        ? { text: `Rascunho gerado às ${timeLabel(draft.generatedAt)}${draft.editedAt ? ", editado" : ""}`, tone: "text-muted" }
+        : { text: "Sem rascunho", tone: "text-muted" };
 
   return (
-    <article className="rounded-2xl bg-field border border-rule p-5 space-y-3">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-display text-xl">
-          {draft?.data.symbol ?? ""} {sign}
+    <article className="py-8" aria-label={sign}>
+      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 mb-4">
+        <h2 className="flex items-baseline gap-3">
+          <span className="font-display font-light text-[clamp(30px,7vw,40px)] leading-none tracking-[-0.02em]">{sign}</span>
+          <span className="font-glyph text-xl text-accent" aria-hidden="true">{SIGN_SYMBOLS[sign]}{TEXT_GLYPH}</span>
         </h2>
-        <span className="text-xs font-ui uppercase tracking-widest text-ink-2">{status}</span>
+        <span className={`text-xs uppercase tracking-[0.14em] ${status.tone}`}>{status.text}</span>
       </header>
 
       {draft ? (
         <>
-          <p className="text-xs text-ink-2">{draft.data.planetLine}</p>
+          <p className={`${eyebrow} mb-3`}>{draft.data.planetLine}</p>
+
+          <label htmlFor={`quote-${sign}`} className="sr-only">Leitura do dia</label>
           <textarea
             id={`quote-${sign}`}
             value={quote}
             onChange={(e) => setQuote(e.target.value)}
             rows={3}
-            className="w-full bg-field border border-rule-strong rounded-lg px-3 py-2 text-sm font-display"
+            className={`${field} font-display text-[19px] mb-4`}
           />
-          {["Amor", "Trabalho", "Energia"].map((label, i) => (
-            <label key={label} className="block text-xs text-ink-2">
-              {label}
-              <textarea
-                id={`${label}-${sign}`}
-                value={cards[i]}
-                onChange={(e) => setCards(cards.map((t, j) => (j === i ? e.target.value : t)))}
-                rows={2}
-                className="mt-1 w-full bg-field border border-rule-strong rounded-lg px-3 py-2 text-sm text-ink"
-              />
-            </label>
-          ))}
-          <div className="flex flex-wrap gap-2 pt-1 text-xs font-semibold">
-            {dirty && (
-              <button disabled={disabled} onClick={() => onAct(sign, "save", edited())} className="px-3 py-2 rounded-lg bg-field border border-rule-strong">
-                Salvar edição
-              </button>
-            )}
+
+          <dl className="border-t border-ink mb-5">
+            {["Amor", "Trabalho", "Energia"].map((label, i) => (
+              <div key={label} className="grid grid-cols-1 sm:grid-cols-[110px_1fr] gap-1.5 sm:gap-4 py-3 border-b border-rule">
+                <dt className="font-display italic text-lg text-accent">
+                  <label htmlFor={`${label}-${sign}`}>{label}</label>
+                </dt>
+                <dd className="m-0">
+                  <textarea
+                    id={`${label}-${sign}`}
+                    value={cards[i]}
+                    onChange={(e) => setCards(cards.map((t, j) => (j === i ? e.target.value : t)))}
+                    rows={2}
+                    className={`${field} text-sm`}
+                  />
+                  <span className={`block mt-1 text-[11px] tabular-nums ${cards[i].length > 180 ? "text-danger" : "text-muted"}`}>
+                    {cards[i].length}/180
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             {draft.status !== "approved" ? (
-              <button disabled={disabled} onClick={() => onAct(sign, "approve", dirty ? edited() : undefined)} className="px-3 py-2 rounded-lg bg-accent text-accent-ink">
-                Aprovar
+              <button type="button" disabled={anyBusy} onClick={() => onAct(sign, "approve", dirty ? edited() : undefined)} className={primary}>
+                {isBusy("approve") ? "Aprovando…" : dirty ? "Salvar e aprovar" : "Aprovar"}
               </button>
             ) : (
-              <button disabled={disabled} onClick={() => onAct(sign, "unapprove")} className="px-3 py-2 rounded-lg bg-field border border-rule-strong">
-                Desfazer aprovação
+              <button type="button" disabled={anyBusy} onClick={() => onAct(sign, "unapprove")} className={link}>
+                {isBusy("unapprove") ? "…" : "Desfazer aprovação"}
               </button>
             )}
-            <button disabled={disabled} onClick={() => onAct(sign, "publish")} className="px-3 py-2 rounded-lg bg-field border border-rule-strong">
-              {published ? "Republicar" : "Publicar agora"}
+            {dirty && (
+              <button type="button" disabled={anyBusy} onClick={() => onAct(sign, "save", edited())} className={link}>
+                {isBusy("save") ? "Salvando…" : "Salvar sem aprovar"}
+              </button>
+            )}
+            <button type="button" disabled={anyBusy} onClick={() => onAct(sign, "publish")} className={link}>
+              {isBusy("publish") ? "Publicando…" : published ? "Republicar agora" : "Publicar agora"}
             </button>
-            <button disabled={disabled} onClick={() => onAct(sign, "regenerate")} className="px-3 py-2 rounded-lg bg-field border border-rule-strong">
-              Regenerar
+            <button type="button" disabled={anyBusy} onClick={() => onAct(sign, "regenerate")} className={`${link} text-ink-2`}>
+              {isBusy("regenerate") ? "Gerando…" : "Regenerar"}
             </button>
           </div>
         </>
       ) : (
-        <button disabled={disabled} onClick={() => onAct(sign, "regenerate")} className="px-3 py-2 rounded-lg bg-accent text-accent-ink text-xs font-semibold">
-          Gerar rascunho
+        <button type="button" disabled={anyBusy} onClick={() => onAct(sign, "regenerate")} className={primary}>
+          {isBusy("regenerate") ? "Gerando…" : "Gerar rascunho"}
         </button>
       )}
     </article>
