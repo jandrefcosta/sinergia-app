@@ -13,6 +13,7 @@ import {
 } from "@/lib/forecast";
 import { dailyForecastEmailHtml, dailyForecastEmailSubject } from "@/emails/daily-forecast";
 import { nudgeProfileEmailHtml, nudgeProfileEmailSubject } from "@/emails/nudge-profile";
+import { instagramUserId, refreshToken } from "@/lib/instagram";
 
 /**
  * Tarefas agendadas. São chamadas pelo agendador interno (instrumentation.ts)
@@ -163,4 +164,14 @@ export async function sendWeeklyNudges() {
   const summary = { sent, skipped: emails.length - sent };
   console.log(`[jobs/weekly] sent=${summary.sent} skipped=${summary.skipped}`);
   return summary;
+}
+
+/** Renova o token do Instagram. Sem credenciais configuradas, não faz nada. */
+export async function refreshInstagramToken() {
+  const redis = getRedis();
+  if (!redis) throw new ServiceUnavailable("Redis indisponível");
+  if (!instagramUserId()) return { skipped: true };
+  const stored = await refreshToken(redis);
+  console.log(`[jobs/instagram] token renovado, vence em ${stored.expiresAt}`);
+  return { expiresAt: stored.expiresAt };
 }

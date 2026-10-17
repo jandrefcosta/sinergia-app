@@ -212,6 +212,8 @@ export default function AdminPage() {
         </section>
       )}
 
+      {payload && isToday && <InstagramPanel secret={secret} published={published.map((r) => r.sign)} />}
+
       {error && <p role="alert" className="pt-4 text-sm text-danger">{error}</p>}
       {!payload && !error && <p className="pt-6 text-sm text-muted">Carregando…</p>}
 
@@ -279,6 +281,100 @@ function SkyDetails({ sky }: { sky: Sky }) {
         </ul>
       </div>
     </details>
+  );
+}
+
+type IgStatus = {
+  username: string;
+  quotaUsage: number;
+  quotaTotal: number | null;
+  tokenExpiresAt: string | null;
+  postedSigns: string[];
+};
+
+/** Stories da previsão de hoje no Instagram. Só aparece no dia corrente. */
+function InstagramPanel({ secret, published }: { secret: string; published: string[] }) {
+  const [status, setStatus] = useState<IgStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [posting, setPosting] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    const res = await fetch("/api/admin/instagram", { headers: { "x-admin-secret": secret } });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(body.error ?? "Instagram indisponível.");
+      return;
+    }
+    setError(null);
+    setStatus(body);
+  }, [secret]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  async function post(sign: string): Promise<boolean> {
+    const res = await fetch("/api/admin/instagram", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-admin-secret": secret },
+      body: JSON.stringify({ sign }),
+    });
+    if (res.ok) return true;
+    const body = await res.json().catch(() => ({}));
+    setError(`${sign}: ${body.error ?? "falha ao postar"}`);
+    return false;
+  }
+
+  async function postMany(signs: string[]) {
+    setError(null);
+    for (const sign of signs) {
+      setPosting(sign);
+      if (!(await post(sign))) break;
+    }
+    setPosting(null);
+    await refresh();
+  }
+
+  const posted = new Set(status?.postedSigns ?? []);
+  const pending = published.filter((s) => !posted.has(s));
+
+  return (
+    <section className="py-5 border-b border-rule space-y-3" aria-label="Instagram">
+      <p className={eyebrow}>Instagram</p>
+      {status ? (
+        <>
+          <p className="text-sm text-ink-2">
+            @{status.username} · <span className="tabular-nums">{status.quotaUsage}{status.quotaTotal ? `/${status.quotaTotal}` : ""}</span> publicações nas últimas 24h
+            {status.tokenExpiresAt && (
+              <span className="text-muted"> · token vence em {new Date(status.tokenExpiresAt).toLocaleDateString("pt-BR")}</span>
+            )}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            {pending.length > 0 && (
+              <button type="button" disabled={!!posting} onClick={() => postMany(pending)} className={primary}>
+                {posting ? `Postando ${posting}…` : `Postar Stories de hoje (${pending.length})`}
+              </button>
+            )}
+            {pending.length === 0 && published.length > 0 && <span className="text-sm text-ink-2">Stories de hoje postados.</span>}
+            {published.length === 0 && <span className="text-sm text-muted">Publique as previsões de hoje antes de postar.</span>}
+          </div>
+          <ul className="m-0 p-0 list-none flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+            {published.map((sign) => (
+              <li key={sign}>
+                {posted.has(sign) ? (
+                  <span className="text-muted">{sign} ✓</span>
+                ) : (
+                  <button type="button" disabled={!!posting} onClick={() => postMany([sign])} className={link}>
+                    {sign}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        !error && <p className="text-sm text-muted">Carregando…</p>
+      )}
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+    </section>
   );
 }
 

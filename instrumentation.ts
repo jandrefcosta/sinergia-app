@@ -7,6 +7,7 @@
  *   06:05       publica o dia
  *   07:00       envia o email diário
  *   seg 08:00   lembrete para quem não escolheu signo
+ *   dom 04:00   renova o token do Instagram
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
@@ -30,6 +31,7 @@ export async function register() {
   new Cron("5 6 * * *", { timezone: tz, protect: true }, run("publish", () => jobs.publishPeriod()));
   new Cron("0 7 * * *", { timezone: tz, protect: true }, run("daily", () => jobs.sendDailyEmails()));
   new Cron("0 8 * * 1", { timezone: tz, protect: true }, run("weekly", () => jobs.sendWeeklyNudges()));
+  new Cron("0 4 * * 0", { timezone: tz, protect: true }, run("instagram-token", () => jobs.refreshInstagramToken()));
 
   console.log("[scheduler] ativo (America/Sao_Paulo)");
 }

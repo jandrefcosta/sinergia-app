@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { loadOgFonts } from "@/lib/og-fonts";
+import { asJpeg, wantsJpeg } from "@/lib/og-jpeg";
 import { RESULT_COPY, parseCombo, tensionLine } from "@/lib/quiz";
 
 /**
@@ -15,7 +16,7 @@ const muted = "#8a8078";
 const accent = "#6f1d24";
 const rule = "#e6e0d8";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ combo: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ combo: string }> }) {
   const { combo } = await params;
   const parsed = parseCombo(combo);
   if (!parsed) return new Response("Not found", { status: 404 });
@@ -26,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ combo: 
   const copy = RESULT_COPY[quiz];
   const copySize = copy.length > 160 ? 46 : 52;
 
-  return new ImageResponse(
+  const png = new ImageResponse(
     (
       <div
         style={{
@@ -79,4 +80,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ combo: 
       headers: { "Cache-Control": "public, max-age=86400, s-maxage=604800, immutable" },
     }
   );
+
+  return wantsJpeg(req) ? asJpeg(png) : png;
 }
