@@ -9,6 +9,12 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# NEXT_PUBLIC_* entram no bundle durante o build; o Railway só repassa
+# as variáveis do serviço para o build quando elas são declaradas como ARG.
+ARG NEXT_PUBLIC_GA_ID
+ARG NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_GA_ID=$NEXT_PUBLIC_GA_ID
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
