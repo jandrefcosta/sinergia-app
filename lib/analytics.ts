@@ -20,7 +20,8 @@ export function track(event: string, params: Params = {}): void {
 
 export const events = {
   signSelected: (sign: string, remembered: boolean) => track("sign_selected", { sign, remembered }),
-  forecastViewed: (sign: string, source: string) => track("forecast_viewed", { sign, source }),
+  forecastViewed: (sign: string, source: string, page: "home" | "signo" = "home") =>
+    track("forecast_viewed", { sign, source, page }),
   share: (method: "native" | "whatsapp" | "copy" | "stories" | "stories_download", sign: string) => track("share", { method, sign }),
   subscribe: (sign: string) => track("subscribe", { sign }),
   subscribeFailed: (sign: string) => track("subscribe_failed", { sign }),

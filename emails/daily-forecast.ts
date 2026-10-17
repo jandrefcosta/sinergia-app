@@ -1,11 +1,27 @@
 import type { Forecast } from "@/lib/signs";
 import { colors, escapeHtml, eyebrow, fonts, rule, shell } from "@/emails/layout";
 import { SITE_URL } from "@/lib/clients";
+import { slugFor } from "@/lib/slugs";
+import type { SignName } from "@/lib/ephemeris";
+import { HOUSES } from "@/lib/retrograde-copy";
+import { houseFor, noticeWindow, rangeLabel } from "@/lib/retrograde";
 
 function todayLabel(): string {
   return new Date()
     .toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Sao_Paulo" })
     .replace("-feira", "");
+}
+
+/** Linha de Mercúrio retrógrado, só na janela do aviso. */
+function retrogradeNotice(sign: SignName, slug: string): string {
+  const r = noticeWindow();
+  if (!r) return "";
+  const house = houseFor(sign, r.startSign);
+  return `
+    <p style="margin:28px 0 0;padding-left:14px;border-left:2px solid ${colors.accent};font-family:${fonts.ui};font-size:14px;line-height:1.55;color:${colors.ink2};">
+      Mercúrio retrógrado de ${rangeLabel(r)}, na sua casa ${house}: ${HOUSES[house].theme}.
+      <a href="${SITE_URL}/mercurio-retrogrado/${slug}?utm_source=email&utm_medium=daily" style="color:${colors.ink};text-decoration:none;border-bottom:1px solid ${colors.rule};">O que muda para ${escapeHtml(sign)}</a>
+    </p>`;
 }
 
 export function dailyForecastEmailHtml(forecast: Forecast, email: string): string {
@@ -27,6 +43,7 @@ export function dailyForecastEmailHtml(forecast: Forecast, email: string): strin
     )
     .join("");
 
+  const slug = slugFor(sign as SignName);
   const body = `
     ${eyebrow(escapeHtml(planetLine))}
     <p style="margin:0 0 24px;font-family:${fonts.display};font-weight:normal;font-size:52px;line-height:1;letter-spacing:-0.02em;color:${colors.ink};">
@@ -38,9 +55,9 @@ export function dailyForecastEmailHtml(forecast: Forecast, email: string): strin
     <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
       ${rule(true)}
       ${cardsHtml}
-    </table>
+    </table>${retrogradeNotice(sign as SignName, slug)}
     <p style="margin:28px 0 0;font-family:${fonts.ui};font-size:14px;color:${colors.ink2};">
-      <a href="${SITE_URL}" style="color:${colors.ink};text-decoration:none;border-bottom:1px solid ${colors.rule};">Ler no site</a>
+      <a href="${SITE_URL}/signo/${slug}?utm_source=email&utm_medium=daily" style="color:${colors.ink};text-decoration:none;border-bottom:1px solid ${colors.rule};">Ler no site</a>
     </p>`;
 
   return shell({

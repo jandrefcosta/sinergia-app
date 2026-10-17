@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Masthead from "@/components/Masthead";
 import ForecastView from "@/components/ForecastView";
+import RetrogradeNotice from "@/components/RetrogradeNotice";
+import TrackForecastView from "@/components/TrackForecastView";
 import EmailCapture from "@/components/EmailCapture";
 import Footer from "@/components/Footer";
 import { getRedis } from "@/lib/clients";
@@ -46,6 +48,8 @@ export default async function SignPage({ params }: Props) {
       <Masthead />
       <section className="pt-11 pb-10">
         <ForecastView data={data} />
+        <RetrogradeNotice sign={sign} />
+        <TrackForecastView sign={sign} source={data.source} />
       </section>
       <p className="text-sm text-ink-2">
         <Link href="/" className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">

@@ -15,6 +15,10 @@ export default function Footer() {
           Famosos
         </a>{" "}
         ·{" "}
+        <a href="/mercurio-retrogrado" className="underline underline-offset-2 hover:text-ink">
+          Mercúrio retrógrado
+        </a>{" "}
+        ·{" "}
         <a href="/unsubscribe" className="underline underline-offset-2 hover:text-ink">
           Cancelar inscrição
         </a>
