@@ -289,10 +289,18 @@ type IgStatus = {
   quotaUsage: number;
   quotaTotal: number | null;
   tokenExpiresAt: string | null;
+  autopost: boolean;
   postedSigns: string[];
+  postedKinds: string[];
 };
 
-/** Stories da previsão de hoje no Instagram. Só aparece no dia corrente. */
+const FEED_POSTS = [
+  { kind: "ceu", label: "O céu de hoje" },
+  { kind: "carrossel-1", label: "Carrossel Áries a Virgem" },
+  { kind: "carrossel-2", label: "Carrossel Libra a Peixes" },
+];
+
+/** Stories e posts de hoje no Instagram. Só aparece no dia corrente. */
 function InstagramPanel({ secret, published }: { secret: string; published: string[] }) {
   const [status, setStatus] = useState<IgStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -311,15 +319,15 @@ function InstagramPanel({ secret, published }: { secret: string; published: stri
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  async function post(sign: string): Promise<boolean> {
+  async function post(label: string, payload: { sign: string } | { kind: string }): Promise<boolean> {
     const res = await fetch("/api/admin/instagram", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-admin-secret": secret },
-      body: JSON.stringify({ sign }),
+      body: JSON.stringify(payload),
     });
     if (res.ok) return true;
     const body = await res.json().catch(() => ({}));
-    setError(`${sign}: ${body.error ?? "falha ao postar"}`);
+    setError(`${label}: ${body.error ?? "falha ao postar"}`);
     return false;
   }
 
@@ -327,8 +335,16 @@ function InstagramPanel({ secret, published }: { secret: string; published: stri
     setError(null);
     for (const sign of signs) {
       setPosting(sign);
-      if (!(await post(sign))) break;
+      if (!(await post(sign, { sign }))) break;
     }
+    setPosting(null);
+    await refresh();
+  }
+
+  async function postFeed(kind: string, label: string) {
+    setError(null);
+    setPosting(label);
+    await post(label, { kind });
     setPosting(null);
     await refresh();
   }
@@ -346,6 +362,7 @@ function InstagramPanel({ secret, published }: { secret: string; published: stri
             {status.tokenExpiresAt && (
               <span className="text-muted"> · token vence em {new Date(status.tokenExpiresAt).toLocaleDateString("pt-BR")}</span>
             )}
+            <span className="text-muted"> · {status.autopost ? "postagem automática ligada" : "postagem automática desligada"}</span>
           </p>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             {pending.length > 0 && (
@@ -364,6 +381,19 @@ function InstagramPanel({ secret, published }: { secret: string; published: stri
                 ) : (
                   <button type="button" disabled={!!posting} onClick={() => postMany([sign])} className={link}>
                     {sign}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <ul className="m-0 p-0 list-none flex flex-wrap gap-x-6 gap-y-1.5 text-sm pt-1">
+            {FEED_POSTS.map(({ kind, label }) => (
+              <li key={kind}>
+                {status.postedKinds.includes(kind) ? (
+                  <span className="text-muted">{label} ✓</span>
+                ) : (
+                  <button type="button" disabled={!!posting} onClick={() => postFeed(kind, label)} className={link}>
+                    {posting === label ? "Postando…" : `Postar ${label.charAt(0).toLowerCase()}${label.slice(1)}`}
                   </button>
                 )}
               </li>

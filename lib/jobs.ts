@@ -14,6 +14,7 @@ import {
 import { dailyForecastEmailHtml, dailyForecastEmailSubject } from "@/emails/daily-forecast";
 import { nudgeProfileEmailHtml, nudgeProfileEmailSubject } from "@/emails/nudge-profile";
 import { instagramUserId, refreshToken } from "@/lib/instagram";
+import { postAllStories, postCarousel, postSky } from "@/lib/instagram-content";
 
 /**
  * Tarefas agendadas. São chamadas pelo agendador interno (instrumentation.ts)
@@ -174,4 +175,39 @@ export async function refreshInstagramToken() {
   const stored = await refreshToken(redis);
   console.log(`[jobs/instagram] token renovado, vence em ${stored.expiresAt}`);
   return { expiresAt: stored.expiresAt };
+}
+
+/**
+ * Postagens automáticas no Instagram. Só rodam com INSTAGRAM_AUTOPOST=1.
+ * Publicam o que estiver no ar, aprovado ou não; o texto de reserva nunca sai.
+ */
+function instagramReady(): boolean {
+  return process.env.INSTAGRAM_AUTOPOST === "1" && !!instagramUserId();
+}
+
+export async function postInstagramStories(period = getBRTPeriod()) {
+  const redis = getRedis();
+  if (!redis) throw new ServiceUnavailable("Redis indisponível");
+  if (!instagramReady()) return { skipped: true };
+  const results = await postAllStories(redis, period);
+  console.log(`[jobs/instagram] stories period=${period}`, results);
+  return { period, results };
+}
+
+export async function postInstagramSky(period = getBRTPeriod()) {
+  const redis = getRedis();
+  if (!redis) throw new ServiceUnavailable("Redis indisponível");
+  if (!instagramReady()) return { skipped: true };
+  const result = await postSky(redis, period);
+  console.log(`[jobs/instagram] céu period=${period}`, result);
+  return { period, result };
+}
+
+export async function postInstagramCarousel(part: 1 | 2, period = getBRTPeriod()) {
+  const redis = getRedis();
+  if (!redis) throw new ServiceUnavailable("Redis indisponível");
+  if (!instagramReady()) return { skipped: true };
+  const result = await postCarousel(redis, period, part);
+  console.log(`[jobs/instagram] carrossel-${part} period=${period}`, result);
+  return { period, result };
 }

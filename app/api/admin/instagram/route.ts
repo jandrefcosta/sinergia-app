@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRedis, SITE_URL } from "@/lib/clients";
-import { getBRTPeriod, isSign } from "@/lib/forecast";
-import { InstagramError, getStatus, publishImage } from "@/lib/instagram";
+import { getRedis } from "@/lib/clients";
 import { SIGNS } from "@/lib/ephemeris";
-import { slugFor } from "@/lib/slugs";
+import { getBRTPeriod, isSign } from "@/lib/forecast";
+import { InstagramError, getStatus } from "@/lib/instagram";
+import { postCarousel, postSky, postStory, postedKeys, type PostKind, type PostResult } from "@/lib/instagram-content";
 
-export const maxDuration = 60;
-
-/** Marca o Story já postado no dia, para o admin não repetir. */
-const storyKey = (period: string, sign: string) => `sinergia:ig:story:${period}:${sign}`;
+export const maxDuration = 120;
 
 function authorized(req: NextRequest): boolean {
   const secret = req.headers.get("x-admin-secret");
@@ -23,48 +20,64 @@ function failure(err: unknown) {
   return NextResponse.json({ error: "Falha ao processar" }, { status: 500 });
 }
 
-/** Conta conectada e uso do limite diário. */
+const KINDS: PostKind[] = ["ceu", "carrossel-1", "carrossel-2"];
+
+/** Conta conectada, uso do limite diário e o que já saiu hoje. */
 export async function GET(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
   const redis = getRedis();
+  if (!redis) {
+    return NextResponse.json({ error: "Serviço indisponível" }, { status: 503 });
+  }
   try {
     const period = getBRTPeriod();
-    const [status, posted] = await Promise.all([
+    const [status, stories, posts] = await Promise.all([
       getStatus(redis),
-      redis ? Promise.all(SIGNS.map((s) => redis.get<string>(storyKey(period, s)))) : [],
+      Promise.all(SIGNS.map((s) => redis.get<string>(postedKeys.story(period, s)))),
+      Promise.all(KINDS.map((k) => redis.get<string>(postedKeys.post(period, k)))),
     ]);
-    const postedSigns = SIGNS.filter((_, i) => posted[i]);
-    return NextResponse.json({ ...status, period, postedSigns });
+    return NextResponse.json({
+      ...status,
+      period,
+      autopost: process.env.INSTAGRAM_AUTOPOST === "1",
+      postedSigns: SIGNS.filter((_, i) => stories[i]),
+      postedKinds: KINDS.filter((_, i) => posts[i]),
+    });
   } catch (err) {
     return failure(err);
   }
 }
 
 /**
- * Publica o Story da previsão de hoje de um signo.
- * body: { sign }
- * Só o dia corrente: o card lê a previsão publicada de hoje.
+ * Publica um item de hoje.
+ * body: { sign } para o Story de um signo, ou { kind: "ceu" | "carrossel-1" | "carrossel-2" }
  */
 export async function POST(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
-  const body = await req.json().catch(() => ({}));
-  const { sign } = body as { sign?: unknown };
-  if (!isSign(sign)) {
-    return NextResponse.json({ error: "Signo inválido" }, { status: 400 });
-  }
-
   const redis = getRedis();
+  if (!redis) {
+    return NextResponse.json({ error: "Serviço indisponível" }, { status: 503 });
+  }
+  const body = await req.json().catch(() => ({}));
+  const { sign, kind } = body as { sign?: unknown; kind?: unknown };
   const period = getBRTPeriod();
-  // O período na URL evita que um cache entregue o card de outro dia
-  const imageUrl = `${SITE_URL}/signo/${slugFor(sign)}/stories?format=jpg&p=${period}`;
+
   try {
-    const id = await publishImage(redis, imageUrl, { story: true });
-    await redis?.set(storyKey(period, sign), id, { ex: 2 * 86400 });
-    return NextResponse.json({ ok: true, id });
+    let result: PostResult;
+    if (isSign(sign)) result = await postStory(redis, period, sign);
+    else if (kind === "ceu") result = await postSky(redis, period);
+    else if (kind === "carrossel-1") result = await postCarousel(redis, period, 1);
+    else if (kind === "carrossel-2") result = await postCarousel(redis, period, 2);
+    else return NextResponse.json({ error: "Pedido inválido" }, { status: 400 });
+
+    if (result.status === "skipped") {
+      return NextResponse.json({ error: `Não publicado: ${result.reason}` }, { status: 409 });
+    }
+    return NextResponse.json({ ok: true, id: result.id });
   } catch (err) {
     return failure(err);
   }

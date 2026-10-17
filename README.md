@@ -33,6 +33,7 @@ O modelo nunca é chamado a partir de um clique do usuário. O custo fica limita
 | `sinergia:profile:{email}` | hash com signo, data e hora de nascimento | sem TTL |
 | `sinergia:ig:token` | token do Instagram renovado, com data de vencimento | sem TTL |
 | `sinergia:ig:story:{period}:{sign}` | id do Story postado no dia | 2 dias |
+| `sinergia:ig:post:{period}:{kind}` | id do post de feed do dia (`ceu`, `carrossel-1`, `carrossel-2`) | 2 dias |
 
 `period` é a data em Brasília, virando às 06h00.
 
@@ -51,6 +52,7 @@ O modelo nunca é chamado a partir de um clique do usuário. O custo fica limita
 | `NEXT_PUBLIC_GA_ID` | opcional, ID do Google Analytics 4 (`G-XXXXXXXXXX`). Sem ela, nada é carregado |
 | `INSTAGRAM_USER_ID` | opcional, ID da conta profissional (`user_id` do `/me`). Liga a publicação de Stories no `/admin` |
 | `INSTAGRAM_ACCESS_TOKEN` | token inicial gerado no painel da Meta. A renovação semanal grava o novo em `sinergia:ig:token` no Redis |
+| `INSTAGRAM_AUTOPOST` | `1` liga as postagens automáticas: Stories às 07h, o céu de hoje às 09h (seg a sáb) e os dois carrosséis de domingo (10h e 18h) |
 
 ## Agendamento
 

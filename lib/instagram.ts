@@ -92,7 +92,34 @@ export async function publishImage(
   const container = await call<{ id: string }>("POST", `/${userId}/media`, {
     image_url: imageUrl,
     ...(opts.story ? { media_type: "STORIES" } : {}),
-    ...(opts.caption && !opts.story ? { caption: opts.caption } : {}),
+    ...(opts.caption && !opts.story ? { caption: opts.caption } : {}), // Stories não têm legenda
+    access_token: token,
+  });
+  await waitReady(container.id, token);
+  const published = await call<{ id: string }>("POST", `/${userId}/media_publish`, {
+    creation_id: container.id,
+    access_token: token,
+  });
+  return published.id;
+}
+
+/** Publica um carrossel (2 a 10 imagens) no feed. Retorna o id da mídia. */
+export async function publishCarousel(redis: Redis | null, imageUrls: string[], caption: string): Promise<string> {
+  const { userId, token } = await credentials(redis);
+  const children: string[] = [];
+  for (const url of imageUrls) {
+    const child = await call<{ id: string }>("POST", `/${userId}/media`, {
+      image_url: url,
+      is_carousel_item: "true",
+      access_token: token,
+    });
+    await waitReady(child.id, token);
+    children.push(child.id);
+  }
+  const container = await call<{ id: string }>("POST", `/${userId}/media`, {
+    media_type: "CAROUSEL",
+    children: children.join(","),
+    caption,
     access_token: token,
   });
   await waitReady(container.id, token);

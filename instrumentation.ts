@@ -8,6 +8,12 @@
  *   07:00       envia o email diário
  *   seg 08:00   lembrete para quem não escolheu signo
  *   dom 04:00   renova o token do Instagram
+ *
+ * Instagram, só com INSTAGRAM_AUTOPOST=1:
+ *   07:00       os 12 Stories
+ *   seg–sáb 09:00  o céu de hoje no feed
+ *   dom 10:00   carrossel Áries a Virgem
+ *   dom 18:00   carrossel Libra a Peixes
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
@@ -32,6 +38,10 @@ export async function register() {
   new Cron("0 7 * * *", { timezone: tz, protect: true }, run("daily", () => jobs.sendDailyEmails()));
   new Cron("0 8 * * 1", { timezone: tz, protect: true }, run("weekly", () => jobs.sendWeeklyNudges()));
   new Cron("0 4 * * 0", { timezone: tz, protect: true }, run("instagram-token", () => jobs.refreshInstagramToken()));
+  new Cron("0 7 * * *", { timezone: tz, protect: true }, run("instagram-stories", () => jobs.postInstagramStories()));
+  new Cron("0 9 * * 1-6", { timezone: tz, protect: true }, run("instagram-ceu", () => jobs.postInstagramSky()));
+  new Cron("0 10 * * 0", { timezone: tz, protect: true }, run("instagram-carrossel-1", () => jobs.postInstagramCarousel(1)));
+  new Cron("0 18 * * 0", { timezone: tz, protect: true }, run("instagram-carrossel-2", () => jobs.postInstagramCarousel(2)));
 
   console.log("[scheduler] ativo (America/Sao_Paulo)");
 }
