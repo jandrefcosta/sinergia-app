@@ -87,6 +87,7 @@ export default async function ResultPage({ params }: Props) {
           text={shareText}
           label={`quiz:${quiz}`}
           shareLabel="Mandar para alguém"
+          storiesImage={`/quiz/resultado/${combo}/stories`}
         />
 
         <p className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm">

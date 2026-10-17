@@ -14,14 +14,17 @@ type Props = {
   /** Rótulo enviado ao Analytics no parâmetro `sign`. */
   label: string;
   shareLabel?: string;
+  /** Caminho de uma imagem vertical; mostra o botão "Salvar para Stories". */
+  storiesImage?: string;
 };
 
 const btn =
   "text-sm font-medium text-ink border-b border-rule-strong pb-0.5 cursor-pointer hover:border-ink transition-colors " +
   "focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
 
-export default function ShareButtons({ url, text, label, shareLabel = "Compartilhar" }: Props) {
+export default function ShareButtons({ url, text, label, shareLabel = "Compartilhar", storiesImage }: Props) {
   const [copied, setCopied] = useState(false);
+  const [loadingStories, setLoadingStories] = useState(false);
 
   function withMedium(medium: string): string {
     const u = new URL(url, typeof window !== "undefined" ? window.location.origin : "https://sinergia-astros.app");
@@ -56,9 +59,47 @@ export default function ShareButtons({ url, text, label, shareLabel = "Compartil
     }
   }
 
+  // No celular abre a folha de compartilhamento com a imagem (Instagram, WhatsApp);
+  // onde não dá para compartilhar arquivo, baixa o PNG.
+  async function stories() {
+    if (!storiesImage || loadingStories) return;
+    setLoadingStories(true);
+    try {
+      const res = await fetch(storiesImage);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const file = new File([blob], "sinergia-stories.png", { type: "image/png" });
+      if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+          events.share("stories", label);
+        } catch {
+          // cancelado
+        }
+        return;
+      }
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = file.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(href), 1000);
+      events.share("stories_download", label);
+    } catch {
+      // rede indisponível
+    } finally {
+      setLoadingStories(false);
+    }
+  }
+
   return (
     <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2.5">
       <button type="button" onClick={share} className={btn}>{shareLabel}</button>
+      {storiesImage && (
+        <button type="button" onClick={stories} className={btn} aria-busy={loadingStories}>
+          {loadingStories ? "Gerando imagem…" : "Salvar para Stories"}
+        </button>
+      )}
       <button type="button" onClick={copy} className={btn} aria-live="polite">
         {copied ? "Link copiado" : "Copiar link"}
       </button>
