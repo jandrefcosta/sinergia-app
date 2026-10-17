@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/quiz`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/famosos`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${SITE_URL}/compatibilidade`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE_URL}/compatibilidade/alma-gemea`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     ...allPairs().map(([a, b]) => ({
       url: `${SITE_URL}/compatibilidade/${pairSlug(a, b)}`,
       changeFrequency: "monthly" as const,

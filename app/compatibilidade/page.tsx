@@ -34,6 +34,18 @@ export default function CompatibilityPage() {
           Escolha o seu signo e o da outra pessoa. Vale para o crush, o casamento, a amizade e aquele colega de trabalho.
         </p>
         <CompatibilityForm />
+        <Link
+          href="/compatibilidade/alma-gemea"
+          className="group mt-8 flex items-baseline justify-between gap-4 border-t border-b border-rule py-4 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          <span>
+            <span className="block font-display text-xl text-ink group-hover:text-accent transition-colors">
+              Vocês são <em className="italic text-accent">alma gêmea</em>?
+            </span>
+            <span className="block text-sm text-ink-2">Vai além do signo: cruza Sol, Lua, Vênus e Marte pelas datas de nascimento.</span>
+          </span>
+          <span className="text-accent" aria-hidden="true">→</span>
+        </Link>
       </section>
 
       <section aria-label="Todas as combinações" className="pb-4">

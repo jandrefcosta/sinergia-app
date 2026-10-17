@@ -23,6 +23,7 @@ export const metadata: Metadata = {
 
 const MORE = [
   { href: "/quiz", title: "Com que signo você se parece?", text: "Sete perguntas sobre o seu jeito." },
+  { href: "/compatibilidade/alma-gemea", title: "Vocês são alma gêmea?", text: "Sol, Lua, Vênus e Marte de vocês dois, pela data de nascimento." },
   { href: "/compatibilidade", title: "Compatibilidade", text: "Como dois signos se encontram." },
   { href: "/mercurio-retrogrado", title: "Mercúrio retrógrado", text: "Quando acontece e o que muda para o seu signo." },
   { href: "/famosos", title: "Famosos por signo", text: "Artistas, atletas e personagens de cada signo." },
