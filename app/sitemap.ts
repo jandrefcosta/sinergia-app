@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SIGN_SLUGS, allDaySlugs } from "@/lib/slugs";
 import { SITE_URL } from "@/lib/site";
+import { allPairs, pairSlug } from "@/lib/compatibility";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
@@ -9,6 +10,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/qual-e-o-meu-signo`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/quiz`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/famosos`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${SITE_URL}/compatibilidade`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    ...allPairs().map(([a, b]) => ({
+      url: `${SITE_URL}/compatibilidade/${pairSlug(a, b)}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
     { url: `${SITE_URL}/mercurio-retrogrado`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
     ...Object.values(SIGN_SLUGS).map((slug) => ({
       url: `${SITE_URL}/mercurio-retrogrado/${slug}`,

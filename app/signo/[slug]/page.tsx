@@ -51,9 +51,12 @@ export default async function SignPage({ params }: Props) {
         <RetrogradeNotice sign={sign} />
         <TrackForecastView sign={sign} source={data.source} />
       </section>
-      <p className="text-sm text-ink-2">
+      <p className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-2">
         <Link href="/" className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">
           Ver outro signo
+        </Link>
+        <Link href="/compatibilidade" className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">
+          Compatibilidade entre signos
         </Link>
       </p>
       <EmailCapture selectedSign={sign} />
