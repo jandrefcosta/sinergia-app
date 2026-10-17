@@ -13,11 +13,15 @@ import { slugFor } from "@/lib/slugs";
  *   Carrossel os doze signos em dois posts (o limite é 10 imagens): Áries a
  *             Virgem e Libra a Peixes, cada um com capa
  *
- * Nunca publica o texto de reserva. Cada post fica marcado no Redis por dois
- * dias, para não sair duas vezes.
+ * Nunca publica o texto de reserva. Cada post reserva a sua chave no Redis
+ * antes de publicar (SET NX), então dois disparos ao mesmo tempo, como um
+ * clique duplo no admin ou o agendador junto com um clique, não publicam em
+ * dobro. Depois de publicado, a chave guarda o id da mídia por dois dias.
  */
 
 const POSTED_TTL = 2 * 86400;
+/** Tempo máximo de uma publicação em andamento; se o processo cair, a trava expira. */
+const PENDING_TTL = 10 * 60;
 const HASHTAGS = "#horoscopo #astrologia #signos #horoscopododia #mapaastral";
 
 export type PostKind = "ceu" | "carrossel-1" | "carrossel-2";
@@ -96,35 +100,44 @@ function storyUrl(period: string, sign: SignName): string {
 
 export type PostResult = { status: "posted"; id: string } | { status: "skipped"; reason: string };
 
+/** Reserva a chave, publica e grava o id. Se a publicação falhar, libera a chave. */
+async function once(redis: Redis, key: string, publish: () => Promise<string>): Promise<PostResult> {
+  const claimed = await redis.set(key, "pending", { nx: true, ex: PENDING_TTL });
+  if (!claimed) {
+    const current = await redis.get<string>(key);
+    return { status: "skipped", reason: current === "pending" ? "publicação em andamento" : "já postado" };
+  }
+  try {
+    const id = await publish();
+    await redis.set(key, id, { ex: POSTED_TTL });
+    return { status: "posted", id };
+  } catch (err) {
+    await redis.del(key);
+    throw err;
+  }
+}
+
 export async function postStory(redis: Redis, period: string, sign: SignName): Promise<PostResult> {
-  const key = postedKeys.story(period, sign);
-  if (await redis.get(key)) return { status: "skipped", reason: "já postado" };
   const forecast = await getForecast(sign, redis, period);
   if (forecast.source === "fallback") return { status: "skipped", reason: "texto de reserva" };
-  const id = await publishImage(redis, storyUrl(period, sign), { story: true });
-  await redis.set(key, id, { ex: POSTED_TTL });
-  return { status: "posted", id };
+  return once(redis, postedKeys.story(period, sign), () => publishImage(redis, storyUrl(period, sign), { story: true }));
 }
 
 export async function postSky(redis: Redis, period: string): Promise<PostResult> {
-  const key = postedKeys.post(period, "ceu");
-  if (await redis.get(key)) return { status: "skipped", reason: "já postado" };
   const sky = await getOrComputeSky(period, redis);
-  const id = await publishImage(redis, cardUrl(period, "ceu"), { story: false, caption: skyCaption(period, sky) });
-  await redis.set(key, id, { ex: POSTED_TTL });
-  return { status: "posted", id };
+  return once(redis, postedKeys.post(period, "ceu"), () =>
+    publishImage(redis, cardUrl(period, "ceu"), { story: false, caption: skyCaption(period, sky) })
+  );
 }
 
 export async function postCarousel(redis: Redis, period: string, part: 1 | 2): Promise<PostResult> {
-  const key = postedKeys.post(period, `carrossel-${part}`);
-  if (await redis.get(key)) return { status: "skipped", reason: "já postado" };
   const forecasts = await Promise.all(CAROUSEL_PARTS[part].map((s) => getForecast(s, redis, period)));
   const signs = CAROUSEL_PARTS[part].filter((_, i) => forecasts[i].source !== "fallback");
   if (signs.length < 2) return { status: "skipped", reason: "texto de reserva" };
   const urls = [cardUrl(period, `capa-${part}`), ...signs.map((s) => cardUrl(period, slugFor(s)))];
-  const id = await publishCarousel(redis, urls, carouselCaption(period, part, signs));
-  await redis.set(key, id, { ex: POSTED_TTL });
-  return { status: "posted", id };
+  return once(redis, postedKeys.post(period, `carrossel-${part}`), () =>
+    publishCarousel(redis, urls, carouselCaption(period, part, signs))
+  );
 }
 
 /** Os doze Stories em ordem. Um signo que falha não impede os outros. */

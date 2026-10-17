@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Draft, Forecast, Published } from "@/lib/forecast";
 import type { Sky } from "@/lib/ephemeris";
 import { SIGN_SYMBOLS, TEXT_GLYPH } from "@/lib/signs";
@@ -305,6 +305,8 @@ function InstagramPanel({ secret, published }: { secret: string; published: stri
   const [status, setStatus] = useState<IgStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posting, setPosting] = useState<string | null>(null);
+  // O estado só desabilita os botões no próximo render; a ref barra o clique duplo
+  const inFlight = useRef(false);
 
   const refresh = useCallback(async () => {
     const res = await fetch("/api/admin/instagram", { headers: { "x-admin-secret": secret } });
@@ -332,20 +334,36 @@ function InstagramPanel({ secret, published }: { secret: string; published: stri
   }
 
   async function postMany(signs: string[]) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setError(null);
-    for (const sign of signs) {
-      setPosting(sign);
-      if (!(await post(sign, { sign }))) break;
+    try {
+      for (const sign of signs) {
+        setPosting(sign);
+        if (!(await post(sign, { sign }))) break;
+      }
+    } catch {
+      setError("Falha de rede ao postar.");
+    } finally {
+      setPosting(null);
+      inFlight.current = false;
     }
-    setPosting(null);
     await refresh();
   }
 
   async function postFeed(kind: string, label: string) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setError(null);
     setPosting(label);
-    await post(label, { kind });
-    setPosting(null);
+    try {
+      await post(label, { kind });
+    } catch {
+      setError("Falha de rede ao postar.");
+    } finally {
+      setPosting(null);
+      inFlight.current = false;
+    }
     await refresh();
   }
 
