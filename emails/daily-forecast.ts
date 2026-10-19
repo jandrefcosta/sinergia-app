@@ -24,7 +24,16 @@ function retrogradeNotice(sign: SignName, slug: string): string {
     </p>`;
 }
 
-export function dailyForecastEmailHtml(forecast: Forecast, email: string): string {
+/** Aviso para quem está no grupo semanal (ver lib/email-quota.ts). */
+function weeklyNotice(sign: string, slug: string): string {
+  return `
+    <p style="margin:28px 0 0;font-family:${fonts.ui};font-size:14px;line-height:1.55;color:${colors.ink2};">
+      Por enquanto, sua previsão chega por email uma vez por semana. A de todos os dias sai às 6h no site:
+      <a href="${SITE_URL}/signo/${slug}?utm_source=email&utm_medium=weekly" style="color:${colors.ink};text-decoration:none;border-bottom:1px solid ${colors.rule};">${escapeHtml(sign)}, hoje</a>.
+    </p>`;
+}
+
+export function dailyForecastEmailHtml(forecast: Forecast, email: string, opts: { weekly?: boolean } = {}): string {
   const { sign, symbol, planetLine, quote, cards } = forecast;
   const first = escapeHtml(quote.charAt(0));
   const rest = escapeHtml(quote.slice(1));
@@ -55,9 +64,9 @@ export function dailyForecastEmailHtml(forecast: Forecast, email: string): strin
     <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
       ${rule(true)}
       ${cardsHtml}
-    </table>${retrogradeNotice(sign as SignName, slug)}
+    </table>${retrogradeNotice(sign as SignName, slug)}${opts.weekly ? weeklyNotice(sign, slug) : ""}
     <p style="margin:28px 0 0;font-family:${fonts.ui};font-size:14px;color:${colors.ink2};">
-      <a href="${SITE_URL}/signo/${slug}?utm_source=email&utm_medium=daily" style="color:${colors.ink};text-decoration:none;border-bottom:1px solid ${colors.rule};">Ler no site</a>
+      <a href="${SITE_URL}/signo/${slug}?utm_source=email&utm_medium=${opts.weekly ? "weekly" : "daily"}" style="color:${colors.ink};text-decoration:none;border-bottom:1px solid ${colors.rule};">Ler no site</a>
     </p>`;
 
   return shell({

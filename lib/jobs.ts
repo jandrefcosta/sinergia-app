@@ -1,5 +1,5 @@
 import { EMAIL_FROM, getRedis, getResend } from "@/lib/clients";
-import { SIGNS } from "@/lib/ephemeris";
+import { SIGNS, type SignName } from "@/lib/ephemeris";
 import {
   generateDraft,
   getBRTPeriod,
@@ -11,6 +11,16 @@ import {
   nextPeriod,
   publishFromDraft,
 } from "@/lib/forecast";
+import {
+  LAST_DAILY_KEY,
+  dailySlots,
+  dailyTierSize,
+  getUsage,
+  sendWithinQuota,
+  weeklyDay,
+  type DailySummary,
+} from "@/lib/email-quota";
+import type { Forecast } from "@/lib/signs";
 import { dailyForecastEmailHtml, dailyForecastEmailSubject } from "@/emails/daily-forecast";
 import { nudgeProfileEmailHtml, nudgeProfileEmailSubject } from "@/emails/nudge-profile";
 import { instagramUserId, refreshToken } from "@/lib/instagram";
@@ -22,8 +32,6 @@ import { postAllStories, postCarousel, postSky } from "@/lib/instagram-content";
  */
 
 export class ServiceUnavailable extends Error {}
-
-const BATCH_SIZE = 50;
 
 /** Gera os rascunhos de um período (padrão: dia seguinte), sem sobrescrever os existentes. */
 export async function generateDrafts(period = nextPeriod(), force = false) {
@@ -84,54 +92,79 @@ export async function publishPeriod(period = getBRTPeriod()) {
   return { period, results };
 }
 
-/** Envia a previsão publicada de hoje para cada assinante com signo. */
-export async function sendDailyEmails() {
+/**
+ * Envia a previsão publicada de hoje para cada assinante com signo.
+ * Dentro da cota do Resend: os inscritos mais antigos recebem todo dia,
+ * os mais novos uma vez por semana (ver lib/email-quota.ts).
+ */
+export async function sendDailyEmails(period = getBRTPeriod()) {
   const redis = getRedis();
   const resend = getResend();
   if (!redis || !resend) throw new ServiceUnavailable("Redis ou Resend indisponível");
 
+  // Ordem de cadastro: os mais antigos primeiro
   const emails = (await redis.zrange("sinergia:emails", 0, -1)) as string[];
   if (emails.length === 0) return { sent: 0, skipped: 0 };
 
   const profiles = await Promise.all(
     emails.map((email) => redis.hget(`sinergia:profile:${email}`, "sign"))
   );
-
-  const bySign: Record<string, string[]> = {};
+  const subscribers: { email: string; sign: SignName }[] = [];
   emails.forEach((email, i) => {
     const sign = profiles[i];
-    if (!isSign(sign)) return;
-    (bySign[sign] ??= []).push(email);
+    if (isSign(sign)) subscribers.push({ email, sign });
   });
 
-  let sent = 0;
-  for (const sign of Object.keys(bySign)) {
-    if (!isSign(sign)) continue;
-    let forecast;
-    try {
-      forecast = await getForecast(sign, redis);
-    } catch (err) {
-      console.error(`[jobs/daily] Falha ao obter forecast para ${sign}:`, err);
-      continue;
+  const dailyTier = dailyTierSize(subscribers.length, dailySlots(await getUsage(redis)));
+  const weekday = new Date(`${period}T12:00:00Z`).getUTCDay();
+  const daily = subscribers.slice(0, dailyTier);
+  const weekly = subscribers.slice(dailyTier).filter(({ email }) => weeklyDay(email) === weekday);
+
+  const forecasts = new Map<SignName, Forecast | null>();
+  async function forecastFor(sign: SignName) {
+    if (!forecasts.has(sign)) {
+      try {
+        forecasts.set(sign, await getForecast(sign, redis!));
+      } catch (err) {
+        console.error(`[jobs/daily] Falha ao obter forecast para ${sign}:`, err);
+        forecasts.set(sign, null);
+      }
     }
-    const targets = bySign[sign];
-    for (let j = 0; j < targets.length; j += BATCH_SIZE) {
-      const batch = targets.slice(j, j + BATCH_SIZE);
-      await resend.batch.send(
-        batch.map((email) => ({
-          from: EMAIL_FROM,
-          to: email,
-          subject: dailyForecastEmailSubject(forecast.sign, forecast.symbol),
-          html: dailyForecastEmailHtml(forecast, email),
-        }))
-      );
-      sent += batch.length;
-    }
+    return forecasts.get(sign)!;
   }
 
-  const summary = { sent, skipped: emails.length - sent };
-  console.log(`[jobs/daily] sent=${summary.sent} skipped=${summary.skipped}`);
-  return summary;
+  async function messages(list: typeof subscribers, isWeekly: boolean) {
+    const out = [];
+    for (const { email, sign } of list) {
+      const forecast = await forecastFor(sign);
+      if (!forecast) continue;
+      out.push({
+        from: EMAIL_FROM,
+        to: email,
+        subject: dailyForecastEmailSubject(forecast.sign, forecast.symbol),
+        html: dailyForecastEmailHtml(forecast, email, { weekly: isWeekly }),
+      });
+    }
+    return out;
+  }
+
+  // Os diários vão primeiro: se a cota acabar no meio, quem fica de fora é o semanal
+  const dailyResult = await sendWithinQuota(redis, resend, await messages(daily, false));
+  const weeklyResult = await sendWithinQuota(redis, resend, await messages(weekly, true));
+
+  const summary: DailySummary = {
+    period,
+    subscribers: subscribers.length,
+    dailyTier,
+    sentDaily: dailyResult.sent,
+    sentWeekly: weeklyResult.sent,
+    blocked: dailyResult.blocked + weeklyResult.blocked,
+    skipped: emails.length - subscribers.length,
+  };
+  await redis.set(LAST_DAILY_KEY, summary, { ex: 40 * 86400 });
+  if (summary.blocked > 0) console.warn(`[jobs/daily] cota do Resend esgotada: ${summary.blocked} ficaram sem email`);
+  console.log("[jobs/daily]", summary);
+  return { ...summary, sent: summary.sentDaily + summary.sentWeekly };
 }
 
 /** Lembra quem cadastrou email mas ainda não escolheu o signo. */
@@ -148,22 +181,19 @@ export async function sendWeeklyNudges() {
   );
   const targets = emails.filter((_, i) => !signs[i]);
 
-  let sent = 0;
-  for (let i = 0; i < targets.length; i += BATCH_SIZE) {
-    const batch = targets.slice(i, i + BATCH_SIZE);
-    await resend.batch.send(
-      batch.map((email) => ({
-        from: EMAIL_FROM,
-        to: email,
-        subject: nudgeProfileEmailSubject,
-        html: nudgeProfileEmailHtml(email),
-      }))
-    );
-    sent += batch.length;
-  }
+  const { sent, blocked } = await sendWithinQuota(
+    redis,
+    resend,
+    targets.map((email) => ({
+      from: EMAIL_FROM,
+      to: email,
+      subject: nudgeProfileEmailSubject,
+      html: nudgeProfileEmailHtml(email),
+    }))
+  );
 
-  const summary = { sent, skipped: emails.length - sent };
-  console.log(`[jobs/weekly] sent=${summary.sent} skipped=${summary.skipped}`);
+  const summary = { sent, blocked, skipped: emails.length - targets.length };
+  console.log(`[jobs/weekly] sent=${summary.sent} blocked=${summary.blocked} skipped=${summary.skipped}`);
   return summary;
 }
 

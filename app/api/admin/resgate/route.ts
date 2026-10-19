@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EMAIL_FROM, getRedis, getResend } from "@/lib/clients";
+import { sendWithinQuota } from "@/lib/email-quota";
 import { completeProfileEmailHtml, completeProfileEmailSubject } from "@/emails/complete-profile";
 
 export async function POST(req: NextRequest) {
@@ -33,22 +34,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sent: 0, skipped: emails.length });
   }
 
-  // Disparo em lotes de 50 (limite do Resend batch)
-  const BATCH_SIZE = 50;
-  let sent = 0;
+  const { sent, blocked } = await sendWithinQuota(
+    redis,
+    resend,
+    targets.map((email) => ({
+      from: EMAIL_FROM,
+      to: email,
+      subject: completeProfileEmailSubject,
+      html: completeProfileEmailHtml(email),
+    }))
+  );
 
-  for (let i = 0; i < targets.length; i += BATCH_SIZE) {
-    const batch = targets.slice(i, i + BATCH_SIZE);
-    await resend.batch.send(
-      batch.map((email) => ({
-        from: EMAIL_FROM,
-        to: email,
-        subject: completeProfileEmailSubject,
-        html: completeProfileEmailHtml(email),
-      }))
-    );
-    sent += batch.length;
-  }
-
-  return NextResponse.json({ sent, skipped: emails.length - sent });
+  return NextResponse.json({ sent, blocked, skipped: emails.length - targets.length });
 }

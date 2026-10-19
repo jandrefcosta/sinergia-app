@@ -213,6 +213,7 @@ export default function AdminPage() {
       )}
 
       {payload && isToday && <InstagramPanel secret={secret} published={published.map((r) => r.sign)} />}
+      {payload && isToday && <EmailPanel secret={secret} />}
 
       {error && <p role="alert" className="pt-4 text-sm text-danger">{error}</p>}
       {!payload && !error && <p className="pt-6 text-sm text-muted">Carregando…</p>}
@@ -421,6 +422,69 @@ function InstagramPanel({ secret, published }: { secret: string; published: stri
       ) : (
         !error && <p className="text-sm text-muted">Carregando…</p>
       )}
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+    </section>
+  );
+}
+
+type EmailStatus = {
+  usage: { month: number; day: number; monthLimit: number; dayLimit: number };
+  warnRatio: number;
+  subscribers: number;
+  withSign: number;
+  dailyTier: number;
+  last: { period: string; sentDaily: number; sentWeekly: number; blocked: number } | null;
+};
+
+/** Cota do Resend. Só aparece no dia corrente. */
+function EmailPanel({ secret }: { secret: string }) {
+  const [status, setStatus] = useState<EmailStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/email", { headers: { "x-admin-secret": secret } })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error ?? "Email indisponível.");
+        setStatus(body);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Email indisponível."));
+  }, [secret]);
+
+  const u = status?.usage;
+  const warn = !!status && !!u && (u.month >= u.monthLimit * status.warnRatio || u.day >= u.dayLimit * status.warnRatio);
+  const weekly = status ? status.withSign - status.dailyTier : 0;
+
+  return (
+    <section className="py-5 border-b border-rule space-y-2" aria-label="Email">
+      <p className={eyebrow}>Email</p>
+      {status && u && (
+        <>
+          <p className="text-sm text-ink-2">
+            <span className={`tabular-nums ${warn ? "text-danger font-semibold" : ""}`}>{u.month}/{u.monthLimit}</span> no mês ·{" "}
+            <span className="tabular-nums">{u.day}/{u.dayLimit}</span> hoje ·{" "}
+            <span className="tabular-nums">{status.subscribers}</span> inscritos
+            {status.subscribers !== status.withSign && <span className="text-muted"> ({status.withSign} com signo)</span>}
+          </p>
+          <p className="text-sm text-ink-2">
+            {weekly > 0
+              ? `${status.dailyTier} recebem todo dia, ${weekly} uma vez por semana para caber na cota.`
+              : "Todos recebem todo dia."}
+            {status.last && (
+              <span className="text-muted">
+                {" "}Último envio ({status.last.period}): {status.last.sentDaily} diários, {status.last.sentWeekly} semanais
+                {status.last.blocked > 0 ? `, ${status.last.blocked} não saíram (cota ou erro do Resend)` : ""}.
+              </span>
+            )}
+          </p>
+          {warn && (
+            <p role="alert" className="text-sm text-danger">
+              Perto do limite do plano gratuito do Resend. Hora de decidir: plano pago ou mais gente no semanal.
+            </p>
+          )}
+        </>
+      )}
+      {!status && !error && <p className="text-sm text-muted">Carregando…</p>}
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     </section>
   );

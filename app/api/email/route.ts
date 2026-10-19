@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EMAIL_FROM, getRedis, getResend } from "@/lib/clients";
+import { releaseEmails, reserveEmails } from "@/lib/email-quota";
 import { welcomeEmailHtml, welcomeEmailSubject } from "@/emails/welcome";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -23,16 +24,20 @@ export async function POST(req: NextRequest) {
     { score: Date.now(), member: email.toLowerCase().trim() }
   );
 
-  // Envia boas-vindas apenas para novos cadastros
+  // Envia boas-vindas apenas para novos cadastros, se ainda houver cota
   if (added === 1) {
     const resend = getResend();
-    if (resend) {
-      await resend.emails.send({
+    if (resend && (await reserveEmails(redis, 1)) === 1) {
+      const { error } = await resend.emails.send({
         from: EMAIL_FROM,
         to: email,
         subject: welcomeEmailSubject,
         html: welcomeEmailHtml(email),
       });
+      if (error) {
+        await releaseEmails(redis, 1);
+        console.error("[email] Falha nas boas-vindas:", error);
+      }
     }
   }
 
