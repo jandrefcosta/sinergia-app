@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { loadOgFonts } from "@/lib/og-fonts";
 import { signFromSlug } from "@/lib/slugs";
 import { HOUSES } from "@/lib/retrograde-copy";
-import { houseFor, rangeLabel, upcomingRetrogrades } from "@/lib/retrograde";
+import { houseFor, shortDate, upcomingRetrogrades } from "@/lib/retrograde";
 
 /**
  * Card vertical (1080×1920) de Mercúrio retrógrado por signo, para Stories.
@@ -50,7 +50,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center" }}>
-          <div style={{ fontSize: 40, color: ink2, marginBottom: 12 }}>{rangeLabel(r)}</div>
+          {/* A data sozinha sobre o nome do signo era lida como o período do signo */}
+          <div style={{ fontSize: 40, color: ink2, marginBottom: 12 }}>{`Mercúrio retrógrado: ${shortDate(r.start)} a ${shortDate(r.end)}`}</div>
           <div style={{ fontFamily: "Fraunces, serif", fontSize: 170, lineHeight: 1, letterSpacing: -5, marginBottom: 20 }}>{sign}</div>
           <div style={{ fontFamily: "Fraunces, serif", fontSize: 60, fontStyle: "italic", color: accent, marginBottom: 40 }}>
             {`casa ${houseNumber}: ${house.theme}`}
