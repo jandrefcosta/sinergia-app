@@ -112,7 +112,9 @@ export default async function PairPage({ params }: Props) {
           ))}
           {famous && (
             <p className="text-sm text-muted">
-              Entre famosos, seria {famous[0]} ({a}) com {famous[1]} ({b}).
+              Entre famosos, seria{" "}
+              <Link href={`/famosos/${slugFor(a)}`} className="underline decoration-rule-strong underline-offset-2 hover:text-ink">{famous[0]}</Link> ({a}) com{" "}
+              <Link href={`/famosos/${slugFor(b)}`} className="underline decoration-rule-strong underline-offset-2 hover:text-ink">{famous[1]}</Link> ({b}).
             </p>
           )}
         </div>
@@ -143,6 +145,14 @@ export default async function PairPage({ params }: Props) {
         <Link href="/compatibilidade" className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">
           Todas as combinações
         </Link>
+        <Link href={`/famosos/${slugFor(a)}`} className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">
+          Famosos de {a}
+        </Link>
+        {!same && (
+          <Link href={`/famosos/${slugFor(b)}`} className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">
+            Famosos de {b}
+          </Link>
+        )}
       </p>
 
       <EmailCapture selectedSign={a} />

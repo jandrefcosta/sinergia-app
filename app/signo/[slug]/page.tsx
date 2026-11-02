@@ -8,7 +8,8 @@ import TrackForecastView from "@/components/TrackForecastView";
 import EmailCapture from "@/components/EmailCapture";
 import Footer from "@/components/Footer";
 import { getRedis } from "@/lib/clients";
-import { getForecast } from "@/lib/forecast";
+import { getBRTPeriod, getForecast } from "@/lib/forecast";
+import { pickForPeriod } from "@/lib/famous";
 import { SIGN_SLUGS, signFromSlug } from "@/lib/slugs";
 import { SITE_URL } from "@/lib/site";
 
@@ -42,6 +43,7 @@ export default async function SignPage({ params }: Props) {
   if (!sign) notFound();
 
   const data = await getForecast(sign, getRedis());
+  const famous = pickForPeriod(sign, getBRTPeriod(), 3).map((f) => f.name);
 
   return (
     <div className="mx-auto flex max-w-page flex-col px-5 pt-7 pb-20">
@@ -57,6 +59,9 @@ export default async function SignPage({ params }: Props) {
         </Link>
         <Link href="/compatibilidade" className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">
           Compatibilidade entre signos
+        </Link>
+        <Link href={`/famosos/${slug}`} className="font-medium text-ink border-b border-rule-strong pb-0.5 hover:border-ink">
+          {famous.length ? `Famosos de ${sign}, como ${famous.join(", ")}` : `Famosos de ${sign}`}
         </Link>
       </p>
       <EmailCapture selectedSign={sign} />
