@@ -293,13 +293,21 @@ type IgStatus = {
   autopost: boolean;
   postedSigns: string[];
   postedKinds: string[];
+  compatPair?: [string, string];
 };
 
 const FEED_POSTS = [
   { kind: "ceu", label: "O céu de hoje" },
   { kind: "carrossel-1", label: "Carrossel Áries a Virgem" },
   { kind: "carrossel-2", label: "Carrossel Libra a Peixes" },
+  { kind: "compatibilidade", label: "Compatibilidade" },
 ];
+
+/** Rótulo do botão; o de compatibilidade mostra o par do dia. */
+function feedLabel(kind: string, label: string, status: IgStatus): string {
+  if (kind === "compatibilidade" && status.compatPair) return `Compatibilidade ${status.compatPair[0]} e ${status.compatPair[1]}`;
+  return label;
+}
 
 /** Stories e posts de hoje no Instagram. Só aparece no dia corrente. */
 function InstagramPanel({ secret, published }: { secret: string; published: string[] }) {
@@ -406,7 +414,9 @@ function InstagramPanel({ secret, published }: { secret: string; published: stri
             ))}
           </ul>
           <ul className="m-0 p-0 list-none flex flex-wrap gap-x-6 gap-y-1.5 text-sm pt-1">
-            {FEED_POSTS.map(({ kind, label }) => (
+            {FEED_POSTS.map(({ kind, label: base }) => {
+              const label = feedLabel(kind, base, status);
+              return (
               <li key={kind}>
                 {status.postedKinds.includes(kind) ? (
                   <span className="text-muted">{label} ✓</span>
@@ -416,7 +426,8 @@ function InstagramPanel({ secret, published }: { secret: string; published: stri
                   </button>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         </>
       ) : (

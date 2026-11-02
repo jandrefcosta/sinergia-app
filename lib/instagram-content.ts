@@ -4,6 +4,8 @@ import { SIGNS, type SignName, type Sky } from "@/lib/ephemeris";
 import { getForecast, getOrComputeSky } from "@/lib/forecast";
 import { publishCarousel, publishImage } from "@/lib/instagram";
 import { slugFor } from "@/lib/slugs";
+import { RELATIONS, pairSlug, relationOf } from "@/lib/compatibility";
+import { pairForPeriod } from "@/lib/compat-rotation";
 
 /**
  * O que vai para o Instagram e quando. Usado pelo agendador e pelo /admin.
@@ -12,6 +14,8 @@ import { slugFor } from "@/lib/slugs";
  *   Céu       um post no feed com a Lua, os aspectos e os retrógrados do dia
  *   Carrossel os doze signos em dois posts (o limite é 10 imagens): Áries a
  *             Virgem e Libra a Peixes, cada um com capa
+ *   Compatibilidade  um par de signos por vez, em sete slides: capa, amor,
+ *             amizade, trabalho, cuidado, o que cada um traz e o convite
  *
  * Nunca publica o texto de reserva. Cada post reserva a sua chave no Redis
  * antes de publicar (SET NX), então dois disparos ao mesmo tempo, como um
@@ -24,7 +28,9 @@ const POSTED_TTL = 2 * 86400;
 const PENDING_TTL = 10 * 60;
 const HASHTAGS = "#horoscopo #astrologia #signos #horoscopododia #mapaastral";
 
-export type PostKind = "ceu" | "carrossel-1" | "carrossel-2";
+export type PostKind = "ceu" | "carrossel-1" | "carrossel-2" | "compatibilidade";
+/** Slides do carrossel de compatibilidade, na ordem. */
+export const COMPAT_SLIDES = ["capa", "amor", "amizade", "trabalho", "cuidado", "cada-um", "convite"] as const;
 export const CAROUSEL_PARTS: Record<1 | 2, readonly SignName[]> = { 1: SIGNS.slice(0, 6), 2: SIGNS.slice(6) };
 
 export const postedKeys = {
@@ -85,6 +91,21 @@ function carouselCaption(period: string, part: 1 | 2, signs: readonly SignName[]
   ].join("\n");
 }
 
+function compatCaption(a: SignName, b: SignName): string {
+  const rel = RELATIONS[relationOf(a, b)];
+  const same = a === b;
+  return [
+    `${a} e ${b}: ${rel.headline}`,
+    "",
+    "Arraste para ver como fica no amor, na amizade e no trabalho, e o cuidado que esse par pede.",
+    same ? `Marca quem também é de ${a} ✦` : `Marca quem é de ${b} se você é de ${a}, ou o contrário ✦`,
+    "",
+    "A sua combinação, com qualquer signo, está no link da bio.",
+    "",
+    `${HASHTAGS} #compatibilidade #${slugFor(a)} #${slugFor(b)}`,
+  ].join("\n");
+}
+
 // ─── URLs dos cards ─────────────────────────────────────────────────────────
 
 /** O período vai no caminho: cada dia é uma URL nova, sem risco de cache antigo. */
@@ -138,6 +159,14 @@ export async function postCarousel(redis: Redis, period: string, part: 1 | 2): P
   return once(redis, postedKeys.post(period, `carrossel-${part}`), () =>
     publishCarousel(redis, urls, carouselCaption(period, part, signs))
   );
+}
+
+/** Carrossel de compatibilidade do dia. O par vem da data (ver lib/compat-rotation). */
+export async function postCompatCarousel(redis: Redis, period: string): Promise<PostResult> {
+  const [a, b] = pairForPeriod(period);
+  const slug = pairSlug(a, b);
+  const urls = COMPAT_SLIDES.map((s) => cardUrl(period, `par-${slug}-${s}`));
+  return once(redis, postedKeys.post(period, "compatibilidade"), () => publishCarousel(redis, urls, compatCaption(a, b)));
 }
 
 /** Os doze Stories em ordem. Um signo que falha não impede os outros. */

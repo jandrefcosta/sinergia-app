@@ -3,7 +3,8 @@ import { getRedis } from "@/lib/clients";
 import { SIGNS } from "@/lib/ephemeris";
 import { getBRTPeriod, isSign } from "@/lib/forecast";
 import { InstagramError, getStatus } from "@/lib/instagram";
-import { postCarousel, postSky, postStory, postedKeys, type PostKind, type PostResult } from "@/lib/instagram-content";
+import { postCarousel, postCompatCarousel, postSky, postStory, postedKeys, type PostKind, type PostResult } from "@/lib/instagram-content";
+import { pairForPeriod } from "@/lib/compat-rotation";
 
 export const maxDuration = 120;
 
@@ -20,7 +21,7 @@ function failure(err: unknown) {
   return NextResponse.json({ error: "Falha ao processar" }, { status: 500 });
 }
 
-const KINDS: PostKind[] = ["ceu", "carrossel-1", "carrossel-2"];
+const KINDS: PostKind[] = ["ceu", "carrossel-1", "carrossel-2", "compatibilidade"];
 
 /** Conta conectada, uso do limite diário e o que já saiu hoje. */
 export async function GET(req: NextRequest) {
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
       autopost: process.env.INSTAGRAM_AUTOPOST === "1",
       postedSigns: SIGNS.filter((_, i) => stories[i]),
       postedKinds: KINDS.filter((_, i) => posts[i]),
+      compatPair: pairForPeriod(period),
     });
   } catch (err) {
     return failure(err);
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * Publica um item de hoje.
- * body: { sign } para o Story de um signo, ou { kind: "ceu" | "carrossel-1" | "carrossel-2" }
+ * body: { sign } para o Story de um signo, ou { kind: "ceu" | "carrossel-1" | "carrossel-2" | "compatibilidade" }
  */
 export async function POST(req: NextRequest) {
   if (!authorized(req)) {
@@ -72,6 +74,7 @@ export async function POST(req: NextRequest) {
     else if (kind === "ceu") result = await postSky(redis, period);
     else if (kind === "carrossel-1") result = await postCarousel(redis, period, 1);
     else if (kind === "carrossel-2") result = await postCarousel(redis, period, 2);
+    else if (kind === "compatibilidade") result = await postCompatCarousel(redis, period);
     else return NextResponse.json({ error: "Pedido inválido" }, { status: 400 });
 
     if (result.status === "skipped") {

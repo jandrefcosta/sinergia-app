@@ -24,7 +24,7 @@ import type { Forecast } from "@/lib/signs";
 import { dailyForecastEmailHtml, dailyForecastEmailSubject } from "@/emails/daily-forecast";
 import { nudgeProfileEmailHtml, nudgeProfileEmailSubject } from "@/emails/nudge-profile";
 import { instagramUserId, refreshToken } from "@/lib/instagram";
-import { postAllStories, postCarousel, postSky } from "@/lib/instagram-content";
+import { postAllStories, postCarousel, postCompatCarousel, postSky } from "@/lib/instagram-content";
 
 /**
  * Tarefas agendadas. São chamadas pelo agendador interno (instrumentation.ts)
@@ -230,6 +230,15 @@ export async function postInstagramSky(period = getBRTPeriod()) {
   if (!instagramReady()) return { skipped: true };
   const result = await postSky(redis, period);
   console.log(`[jobs/instagram] céu period=${period}`, result);
+  return { period, result };
+}
+
+export async function postInstagramCompat(period = getBRTPeriod()) {
+  const redis = getRedis();
+  if (!redis) throw new ServiceUnavailable("Redis indisponível");
+  if (!instagramReady()) return { skipped: true };
+  const result = await postCompatCarousel(redis, period);
+  console.log(`[jobs/instagram] compatibilidade period=${period}`, result);
   return { period, result };
 }
 
