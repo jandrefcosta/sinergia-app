@@ -82,6 +82,7 @@ export default async function PairPage({ params }: Props) {
         <p className="quote font-display text-[clamp(22px,5.2vw,28px)] leading-[1.32] tracking-[-0.012em] mb-8 [text-wrap:pretty]">
           {rel.headline}
         </p>
+        <EmailCapture selectedSign={a} variant="compact" />
         <div className="space-y-4 text-ink-2 max-w-[60ch]">
           {rel.text.map((p) => <p key={p}>{p}</p>)}
         </div>

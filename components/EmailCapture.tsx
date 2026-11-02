@@ -1,19 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { SIGNS } from "@/lib/ephemeris";
 import { SIGN_SYMBOLS, TEXT_GLYPH } from "@/lib/signs";
 import { events } from "@/lib/analytics";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type Props = { selectedSign: string | null };
+/**
+ * `full` é o bloco de fim de página, com título. `compact` vai logo abaixo da
+ * abertura das páginas de conteúdo, para quem não lê até o fim.
+ */
+type Props = { selectedSign: string | null; variant?: "full" | "compact" };
 
 const field =
   "w-full min-w-0 bg-field text-ink border border-rule-strong px-3.5 py-3 text-base placeholder:text-muted " +
   "focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-accent";
 
-export default function EmailCapture({ selectedSign }: Props) {
+export default function EmailCapture({ selectedSign, variant = "full" }: Props) {
+  const uid = useId();
+  const emailId = `${uid}-email`;
+  const signId = `${uid}-sign`;
   const [email, setEmail] = useState("");
   const [sign, setSign] = useState(selectedSign ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +62,71 @@ export default function EmailCapture({ selectedSign }: Props) {
     }
   }
 
+  const form = (
+    <form onSubmit={handleSubmit} noValidate className="space-y-2">
+      <div className="flex flex-col sm:flex-row gap-2">
+        <label htmlFor={emailId} className="sr-only">Seu email</label>
+        <input
+          id={emailId}
+          type="email"
+          autoComplete="email"
+          placeholder="seu@email.com"
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); setError(null); }}
+          aria-invalid={!!error && !EMAIL_RE.test(email)}
+          className={`${field} flex-1`}
+        />
+        <label htmlFor={signId} className="sr-only">Signo</label>
+        <select
+          id={signId}
+          value={sign}
+          onChange={(e) => { setSign(e.target.value); setError(null); }}
+          className={`${field} sm:w-44 cursor-pointer`}
+        >
+          <option value="" disabled>Signo</option>
+          {SIGNS.map((s) => (
+            <option key={s} value={s}>{SIGN_SYMBOLS[s]}{TEXT_GLYPH} {s}</option>
+          ))}
+        </select>
+      </div>
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full sm:w-auto bg-accent text-accent-ink px-5 py-3 text-[15px] font-semibold cursor-pointer disabled:opacity-60 disabled:cursor-wait focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      >
+        {loading ? "Enviando…" : "Quero receber"}
+      </button>
+      {error ? (
+        <p role="alert" className="text-xs text-danger">{error}</p>
+      ) : (
+        <p className="text-xs text-muted">Um email por dia. Cancele quando quiser, num clique.</p>
+      )}
+    </form>
+  );
+
+  if (variant === "compact") {
+    return (
+      <aside className="my-8 border-l-2 border-accent pl-4 sm:pl-5" aria-label="Receber por email">
+        {done ? (
+          <p className="text-ink-2" role="status">
+            Pronto. A previsão de {sign} chega no seu email às 7h.
+          </p>
+        ) : (
+          <>
+            <p className="text-ink-2 mb-3">
+              {selectedSign ? (
+                <>Receba a previsão de <strong className="font-semibold text-ink">{selectedSign}</strong> todo dia às 7h, por email.</>
+              ) : (
+                <>Receba a previsão do seu signo todo dia às 7h, por email.</>
+              )}
+            </p>
+            {form}
+          </>
+        )}
+      </aside>
+    );
+  }
+
   return (
     <section className="mt-10 border-t border-ink pt-10" aria-label="Receber por email">
       <h2 className="font-display font-light text-[clamp(28px,6.5vw,38px)] leading-[1.08] tracking-[-0.02em] mb-3">
@@ -76,45 +148,7 @@ export default function EmailCapture({ selectedSign }: Props) {
             A previsão do seu signo chega por email às 7h. Sem app, sem notificação, só um texto para
             começar o dia.
           </p>
-          <form onSubmit={handleSubmit} noValidate className="space-y-2">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <label htmlFor="email" className="sr-only">Seu email</label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setError(null); }}
-                aria-invalid={!!error && !EMAIL_RE.test(email)}
-                className={`${field} flex-1`}
-              />
-              <label htmlFor="sign" className="sr-only">Signo</label>
-              <select
-                id="sign"
-                value={sign}
-                onChange={(e) => { setSign(e.target.value); setError(null); }}
-                className={`${field} sm:w-44 cursor-pointer`}
-              >
-                <option value="" disabled>Signo</option>
-                {SIGNS.map((s) => (
-                  <option key={s} value={s}>{SIGN_SYMBOLS[s]}{TEXT_GLYPH} {s}</option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full sm:w-auto bg-accent text-accent-ink px-5 py-3 text-[15px] font-semibold cursor-pointer disabled:opacity-60 disabled:cursor-wait focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-            >
-              {loading ? "Enviando…" : "Quero receber"}
-            </button>
-            {error ? (
-              <p role="alert" className="text-xs text-danger">{error}</p>
-            ) : (
-              <p className="text-xs text-muted">Um email por dia. Cancele quando quiser, num clique.</p>
-            )}
-          </form>
+          {form}
         </>
       )}
     </section>

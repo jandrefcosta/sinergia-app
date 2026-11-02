@@ -62,6 +62,7 @@ export default async function SignRetrogradePage({ params }: Props) {
         <p className="quote font-display text-[clamp(22px,5.2vw,28px)] leading-[1.32] tracking-[-0.012em] mb-8 [text-wrap:pretty]">
           De {rangeLabel(r)}, Mercúrio retrograda na sua casa {houseNumber}: {house.theme}.
         </p>
+        <EmailCapture selectedSign={sign} variant="compact" />
         <div className="space-y-4 text-ink-2 max-w-[60ch]">
           {house.text.map((p) => <p key={p}>{p}</p>)}
           {secondHouse && (
